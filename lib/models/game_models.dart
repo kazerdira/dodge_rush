@@ -1,18 +1,44 @@
 import 'package:flutter/material.dart';
 
 enum SkinType { phantom, nova, inferno, specter, titan }
-enum ObstacleType { asteroid, debris, laserWall, mine }
+
+enum ObstacleType { asteroid, laserWall, mine, sweepBeam, pulseGate }
+
 enum PowerUpType { shield, slowTime, extraLife }
+
+enum TrailStyle { clean, ghost, fire, scatter, wide }
 
 Color skinColor(SkinType skin) {
   switch (skin) {
-    case SkinType.phantom:  return const Color(0xFF00FFD1);
-    case SkinType.nova:     return const Color(0xFF4D7CFF);
-    case SkinType.inferno:  return const Color(0xFFFF6B2B);
-    case SkinType.specter:  return const Color(0xFF8B5CF6);
-    case SkinType.titan:    return const Color(0xFFFFD60A);
+    case SkinType.phantom:
+      return const Color(0xFF00FFD1);
+    case SkinType.nova:
+      return const Color(0xFF4D7CFF);
+    case SkinType.inferno:
+      return const Color(0xFFFF6B2B);
+    case SkinType.specter:
+      return const Color(0xFF8B5CF6);
+    case SkinType.titan:
+      return const Color(0xFFFFD60A);
   }
 }
+
+TrailStyle skinTrail(SkinType skin) {
+  switch (skin) {
+    case SkinType.phantom:
+      return TrailStyle.clean;
+    case SkinType.nova:
+      return TrailStyle.scatter;
+    case SkinType.inferno:
+      return TrailStyle.fire;
+    case SkinType.specter:
+      return TrailStyle.ghost;
+    case SkinType.titan:
+      return TrailStyle.wide;
+  }
+}
+
+enum PatternType { gapWall, minefield, sweepBeam, pulseGate, zigzag }
 
 class Player {
   double x;
@@ -21,6 +47,7 @@ class Player {
   double size;
   double velocityX;
   Color get color => skinColor(skin);
+  TrailStyle get trailStyle => skinTrail(skin);
 
   Player({
     this.x = 0.5,
@@ -37,7 +64,16 @@ class Obstacle {
   Color color;
   double rotation;
   double rotationSpeed;
-  List<Offset> shape; // polygon points for asteroids
+  List<Offset> shape;
+  // sweep beam
+  double sweepProgress;
+  double sweepSpeed;
+  bool sweepFromLeft;
+  bool sweepDone;
+  // pulse gate
+  double pulsePhase;
+  double gapCenterX; // normalized 0-1
+  double gapHalfWidth;
 
   Obstacle({
     required this.x,
@@ -50,6 +86,13 @@ class Obstacle {
     this.rotation = 0,
     this.rotationSpeed = 0,
     this.shape = const [],
+    this.sweepProgress = 0,
+    this.sweepSpeed = 0.35,
+    this.sweepFromLeft = true,
+    this.sweepDone = false,
+    this.pulsePhase = 0,
+    this.gapCenterX = 0.5,
+    this.gapHalfWidth = 0.12,
   });
 }
 
@@ -83,7 +126,7 @@ class PowerUp {
 
 class StarParticle {
   double x, y, speed, size, opacity;
-  int layer; // 0=far, 1=mid, 2=close
+  int layer;
   StarParticle({
     required this.x,
     required this.y,
@@ -97,12 +140,14 @@ class StarParticle {
 class TrailPoint {
   double x, y, life, size;
   Color color;
+  double vx;
   TrailPoint({
     required this.x,
     required this.y,
     required this.life,
     required this.size,
     required this.color,
+    this.vx = 0,
   });
 }
 
@@ -122,6 +167,7 @@ class RunState {
   bool isSlowActive;
   double slowTimer;
   int sector;
+  PatternType? lastPattern;
 
   RunState({
     this.isPlaying = false,
@@ -139,5 +185,6 @@ class RunState {
     this.isSlowActive = false,
     this.slowTimer = 0,
     this.sector = 1,
+    this.lastPattern,
   });
 }
