@@ -12,11 +12,11 @@ void main() {
     statusBarColor: Colors.transparent,
     statusBarIconBrightness: Brightness.light,
   ));
-  runApp(const DodgeRushApp());
+  runApp(const StellarDriftApp());
 }
 
-class DodgeRushApp extends StatelessWidget {
-  const DodgeRushApp({super.key});
+class StellarDriftApp extends StatelessWidget {
+  const StellarDriftApp({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -25,7 +25,7 @@ class DodgeRushApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => SettingsProvider()),
       ],
       child: MaterialApp(
-        title: 'Dodge Rush',
+        title: 'Stellar Drift',
         debugShowCheckedModeBanner: false,
         theme: AppTheme.theme,
         home: const HomeScreen(),
