@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../providers/game_provider.dart';
 import '../providers/settings_provider.dart';
 import '../theme/app_theme.dart';
+import '../models/game_models.dart';
 import '../game/game_painter.dart';
 import 'game_over_screen.dart';
 
@@ -176,11 +177,13 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                           Navigator.pop(context);
                         })),
 
-                // ── BOMB BUTTON (bottom right, no-op for now) ──────────
+                // ── FIRE BUTTON (bottom right, above safe area) ───────────
                 Positioned(
                   right: 20,
                   bottom: 40 + MediaQuery.of(context).padding.bottom,
-                  child: _BombButton(
+                  child: _FireButton(
+                    onFireStart: () => _game.startFiring(),
+                    onFireEnd: () => _game.stopFiring(),
                     color: _game.player.color,
                   ),
                 ),
@@ -255,17 +258,22 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   }
 }
 
-// ── BOMB BUTTON (placeholder — functionality coming later) ─────────────────
+// ── FIRE BUTTON ────────────────────────────────────────────────────────────
 
-class _BombButton extends StatefulWidget {
+class _FireButton extends StatefulWidget {
+  final VoidCallback onFireStart;
+  final VoidCallback onFireEnd;
   final Color color;
-  const _BombButton({required this.color});
+  const _FireButton(
+      {required this.onFireStart,
+      required this.onFireEnd,
+      required this.color});
 
   @override
-  State<_BombButton> createState() => _BombButtonState();
+  State<_FireButton> createState() => _FireButtonState();
 }
 
-class _BombButtonState extends State<_BombButton>
+class _FireButtonState extends State<_FireButton>
     with SingleTickerProviderStateMixin {
   bool _pressed = false;
   late AnimationController _pulse;
@@ -274,7 +282,7 @@ class _BombButtonState extends State<_BombButton>
   void initState() {
     super.initState();
     _pulse = AnimationController(
-        vsync: this, duration: const Duration(milliseconds: 900))
+        vsync: this, duration: const Duration(milliseconds: 600))
       ..repeat(reverse: true);
   }
 
@@ -287,13 +295,30 @@ class _BombButtonState extends State<_BombButton>
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTapDown: (_) => setState(() => _pressed = true),
-      onTapUp: (_) => setState(() => _pressed = false),
-      onTapCancel: () => setState(() => _pressed = false),
+      onTapDown: (_) {
+        setState(() => _pressed = true);
+        widget.onFireStart();
+      },
+      onTapUp: (_) {
+        setState(() => _pressed = false);
+        widget.onFireEnd();
+      },
+      onTapCancel: () {
+        setState(() => _pressed = false);
+        widget.onFireEnd();
+      },
+      onLongPressStart: (_) {
+        setState(() => _pressed = true);
+        widget.onFireStart();
+      },
+      onLongPressEnd: (_) {
+        setState(() => _pressed = false);
+        widget.onFireEnd();
+      },
       child: AnimatedBuilder(
         animation: _pulse,
         builder: (_, __) {
-          final scale = _pressed ? 0.90 : 1.0 + _pulse.value * 0.05;
+          final scale = _pressed ? 0.92 : 1.0 + _pulse.value * 0.04;
           return Transform.scale(
             scale: scale,
             child: Container(
@@ -302,29 +327,31 @@ class _BombButtonState extends State<_BombButton>
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 color: _pressed
-                    ? const Color(0xFFFF6B2B).withOpacity(0.35)
+                    ? widget.color.withOpacity(0.35)
                     : AppTheme.card.withOpacity(0.9),
                 border: Border.all(
-                    color: const Color(0xFFFF6B2B)
-                        .withOpacity(_pressed ? 1.0 : 0.5 + _pulse.value * 0.3),
+                    color: widget.color
+                        .withOpacity(_pressed ? 1.0 : 0.6 + _pulse.value * 0.3),
                     width: _pressed ? 2.5 : 2.0),
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFFFF6B2B)
-                        .withOpacity(_pressed ? 0.6 : 0.15 + _pulse.value * 0.15),
-                    blurRadius: _pressed ? 24 : 10,
+                    color: widget.color
+                        .withOpacity(_pressed ? 0.6 : 0.2 + _pulse.value * 0.2),
+                    blurRadius: _pressed ? 24 : 12,
                   ),
                 ],
               ),
-              child: const Column(
+              child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(Icons.rocket_launch_rounded,
-                        color: Color(0xFFFF6B2B),
+                    Icon(Icons.flash_on_rounded,
+                        color: widget.color
+                            .withOpacity(_pressed ? 1.0 : 0.8),
                         size: 28),
-                    Text('BOMB',
+                    Text('FIRE',
                         style: TextStyle(
-                          color: Color(0xFFFF6B2B),
+                          color: widget.color
+                              .withOpacity(_pressed ? 1.0 : 0.7),
                           fontSize: 9,
                           fontWeight: FontWeight.w900,
                           letterSpacing: 1.5,

@@ -106,13 +106,11 @@ class GamePainter extends CustomPainter {
   }
 
   void _drawGhostImages(Canvas canvas, Size size) {
-    // Specter skin: fading after-images of the ship
     for (final g in game.ghostImages) {
       final life = g['life'] as double;
       final cx = (g['x'] as double) * size.width;
       final cy = (g['y'] as double) * size.height;
       final r = (g['size'] as double) * 0.9;
-
       final path = buildSpecterPath(cx, cy, r);
       final paint = Paint()
         ..color = AppTheme.slowColor.withOpacity(life * 0.25)
@@ -154,10 +152,11 @@ class GamePainter extends CustomPainter {
     }
   }
 
-  // ─── OBSTACLES ──────────────────────────────────────────────────────────────
+  // ── OBSTACLES ─────────────────────────────────────────────────────────────
 
   void _drawObstacles(Canvas canvas, Size size) {
-    for (final obs in game.obstacles) {
+    for (final obs in obstacles) {
+      // Skip fully dead, only draw dying ones during death animation
       if (obs.isFullyDead) continue;
 
       switch (obs.type) {
@@ -180,115 +179,85 @@ class GamePainter extends CustomPainter {
     }
   }
 
-  // 1. LASER WALL -> SPACE STATION BARRICADE
+  List<Obstacle> get obstacles => game.obstacles;
+
+  /// Blends a color toward grey based on damage state
+  Color _applyDamageColor(Color original, double greyShift, double opacity) {
+    final grey = Color.lerp(original, const Color(0xFF777777), greyShift)!;
+    return grey.withOpacity(opacity.clamp(0.0, 1.0));
+  }
+
   void _drawLaserWall(Canvas canvas, Size size, Obstacle obs) {
     final rect = Rect.fromLTWH(obs.x * size.width, obs.y * size.height,
         obs.width * size.width, obs.height * size.height);
     final paint = Paint();
-    final opacity = obs.damageOpacity;
     final effectiveColor =
-        Color.lerp(obs.color, const Color(0xFF777777), obs.greyShift)!;
+        _applyDamageColor(obs.color, obs.greyShift, obs.damageOpacity);
 
-    // Death animation — white flash + dissolve
+    // Dying: flash white then fade
     if (obs.isDying) {
       final t = obs.deathTimer;
-      paint.maskFilter = MaskFilter.blur(BlurStyle.normal, 30 * (1 - t));
-      paint.color = Colors.white.withOpacity((1.0 - t) * 0.8);
-      canvas.drawRect(rect.inflate(4 * (1 - t)), paint);
-      paint.maskFilter = null;
-      // Fading debris rectangles
-      for (int i = 0; i < 5; i++) {
-        final dx = sin(i * 1.3 + t * 8) * 20 * t;
-        final dy = -30 * t * (1 + i * 0.3);
-        paint.color = effectiveColor.withOpacity((1.0 - t) * 0.5);
-        canvas.drawRect(
-          Rect.fromCenter(
-            center: rect.center + Offset(dx, dy),
-            width: rect.width * 0.15 * (1 - t),
-            height: rect.height * (1 - t),
-          ),
-          paint,
-        );
-      }
+      paint.color = Color.lerp(Colors.white, Colors.transparent, t)!;
+      canvas.drawRect(rect.inflate(6 * (1 - t)), paint);
       return;
     }
 
-    // The physical metallic housing block (background)
-    paint.shader = LinearGradient(
-      colors: [const Color(0xFF1A1A24), const Color(0xFF0D0D14)],
-      begin: Alignment.topCenter, end: Alignment.bottomCenter,
-    ).createShader(rect);
-    paint.color = paint.color.withOpacity(opacity);
-    canvas.drawRect(rect, paint);
-    paint.shader = null;
-
-    // Damage cracks overlay
-    if (obs.damageState == DamageState.damaged ||
-        obs.damageState == DamageState.critical) {
-      paint.color = Colors.orange.withOpacity(
-          obs.damageState == DamageState.critical ? 0.6 : 0.3);
-      paint.style = PaintingStyle.stroke;
-      paint.strokeWidth = 1.5;
-      final crackPath = Path();
-      for (int i = 0; i < 4; i++) {
-        final startX = rect.left + rect.width * (0.2 + i * 0.2);
-        crackPath.moveTo(startX, rect.top);
-        crackPath.lineTo(startX + 5, rect.center.dy);
-        crackPath.lineTo(startX - 3, rect.bottom);
-      }
-      canvas.drawPath(crackPath, paint);
-      paint.style = PaintingStyle.fill;
-    }
-
-    // Heavy mechanical paneling
-    paint.color = Colors.black.withOpacity(0.6 * opacity);
-    paint.style = PaintingStyle.stroke;
-    paint.strokeWidth = 2.0;
-    canvas.drawRect(rect, paint);
-    for (double x = rect.left + 20; x < rect.right; x += 40) {
-      canvas.drawLine(Offset(x, rect.top), Offset(x, rect.bottom), paint);
-    }
-    paint.style = PaintingStyle.fill;
-
-    // Glowing Plasma Emitter Trench
-    final innerRect = Rect.fromLTWH(rect.left, rect.top + rect.height * 0.3, rect.width, rect.height * 0.4);
-    paint.maskFilter = const MaskFilter.blur(BlurStyle.normal, 10);
-    paint.color = effectiveColor.withOpacity(0.6 * opacity);
-    canvas.drawRect(innerRect, paint);
+    paint.maskFilter = const MaskFilter.blur(BlurStyle.normal, 12);
+    paint.color = effectiveColor.withOpacity(0.4 * obs.damageOpacity);
+    canvas.drawRect(rect.inflate(3), paint);
     paint.maskFilter = null;
 
-    // Hot Energy Core
-    paint.shader = LinearGradient(
-      colors: [
-        Colors.white.withOpacity(opacity),
-        effectiveColor.withOpacity(opacity),
-        effectiveColor.withOpacity(0.5 * opacity),
-      ],
-      stops: const [0.1, 0.5, 1.0],
-      begin: Alignment.topCenter, end: Alignment.bottomCenter,
-    ).createShader(innerRect);
-    canvas.drawRect(innerRect, paint);
+    paint.shader = LinearGradient(colors: [
+      effectiveColor.withOpacity(0.9),
+      effectiveColor.withOpacity(0.5),
+      effectiveColor.withOpacity(0.9)
+    ], begin: Alignment.topCenter, end: Alignment.bottomCenter)
+        .createShader(rect);
+    canvas.drawRect(rect, paint);
     paint.shader = null;
 
-    // High-tech Warning Nodes
-    final nodePhase = (animTick * 4) % (pi * 2);
-    paint.color = Colors.white.withOpacity((0.5 + sin(nodePhase) * 0.5) * opacity);
-    for (double x = rect.left + 10; x < rect.right; x += 40) {
-      canvas.drawCircle(Offset(x, rect.top + rect.height / 2), 3, paint);
+    // Damage cracks on damaged/critical
+    if (obs.damageState == DamageState.damaged ||
+        obs.damageState == DamageState.critical) {
+      _drawCracks(canvas, rect, obs.damageState);
     }
 
-    // Emitter End-Caps (where the laser shoots out into the gap)
-    final isLeftWall = obs.x < 0.1;
-    final capX = isLeftWall ? rect.right - 10 : rect.left;
-    final capRect = Rect.fromLTWH(capX, rect.top - 2, 10, rect.height + 4);
-    paint.shader = LinearGradient(
-      colors: [Colors.grey.shade400.withOpacity(opacity), Colors.grey.shade800.withOpacity(opacity)],
-    ).createShader(capRect);
-    canvas.drawRRect(RRect.fromRectAndRadius(capRect, const Radius.circular(3)), paint);
-    paint.shader = null;
+    final scanY = rect.top + (rect.height * ((animTick * 1.5) % 1.0));
+    paint.color = Colors.white.withOpacity(0.28 * obs.damageOpacity);
+    paint.strokeWidth = 1.5;
+    paint.style = PaintingStyle.stroke;
+    canvas.drawLine(Offset(rect.left, scanY), Offset(rect.right, scanY), paint);
+    paint.style = PaintingStyle.fill;
+
+    paint.color = Colors.white.withOpacity(0.1 * obs.damageOpacity);
+    var sx = rect.left;
+    while (sx < rect.right) {
+      canvas.drawRect(Rect.fromLTWH(sx, rect.top, 3.5, rect.height), paint);
+      sx += 9;
+    }
   }
 
-  // 2. ASTEROID -> DEEP SPACE RESOURCE ROCK
+  void _drawCracks(Canvas canvas, Rect rect, DamageState state) {
+    final paint = Paint()
+      ..color = Colors.white.withOpacity(state == DamageState.critical ? 0.6 : 0.3)
+      ..strokeWidth = state == DamageState.critical ? 1.2 : 0.7
+      ..style = PaintingStyle.stroke;
+    final rng = Random(rect.left.toInt() + rect.top.toInt());
+    final numCracks = state == DamageState.critical ? 5 : 3;
+    for (int i = 0; i < numCracks; i++) {
+      final startX = rect.left + rng.nextDouble() * rect.width;
+      final startY = rect.top + rng.nextDouble() * rect.height;
+      final path = Path()..moveTo(startX, startY);
+      double cx = startX, cy = startY;
+      for (int j = 0; j < 3; j++) {
+        cx += (rng.nextDouble() - 0.5) * 14;
+        cy += (rng.nextDouble() - 0.5) * 8;
+        path.lineTo(cx.clamp(rect.left, rect.right), cy.clamp(rect.top, rect.bottom));
+      }
+      canvas.drawPath(path, paint);
+    }
+  }
+
   void _drawAsteroid(Canvas canvas, Size size, Obstacle obs) {
     if (obs.shape.isEmpty) return;
     final cx = (obs.x + obs.width / 2) * size.width;
@@ -312,64 +281,41 @@ class GamePainter extends CustomPainter {
     final path = Path();
     for (int i = 0; i < obs.shape.length; i++) {
       final pt = obs.shape[i];
-      if (i == 0) path.moveTo(pt.dx * r, pt.dy * r);
-      else path.lineTo(pt.dx * r, pt.dy * r);
+      if (i == 0)
+        path.moveTo(pt.dx * r, pt.dy * r);
+      else
+        path.lineTo(pt.dx * r, pt.dy * r);
     }
     path.close();
 
-    // 3D Rim Lighting
-    paint.maskFilter = const MaskFilter.blur(BlurStyle.normal, 4);
-    paint.color = Colors.lightBlueAccent.withOpacity(0.3 * opacity);
-    canvas.translate(-2, -2);
+    paint.maskFilter = const MaskFilter.blur(BlurStyle.normal, 8);
+    paint.color = obs.color.withOpacity(0.3 * opacity);
     canvas.drawPath(path, paint);
-    canvas.translate(2, 2);
     paint.maskFilter = null;
 
-    // Rocky Surface — shifts toward grey when damaged
+    // Color shifts toward grey as damaged
     final baseColor1 = Color.lerp(
-        const Color(0xFF555555), const Color(0xFF888888), obs.greyShift)!;
+        const Color(0xFFA07850), const Color(0xFF888888), obs.greyShift)!;
     final baseColor2 = Color.lerp(
-        const Color(0xFF2A2A2A), const Color(0xFF666666), obs.greyShift)!;
+        const Color(0xFF6B4E30), const Color(0xFF666666), obs.greyShift)!;
     final baseColor3 = Color.lerp(
-        const Color(0xFF0A0A0A), const Color(0xFF444444), obs.greyShift)!;
+        const Color(0xFF3D2A15), const Color(0xFF444444), obs.greyShift)!;
+
     paint.shader = RadialGradient(
-      colors: [baseColor1, baseColor2, baseColor3],
-      center: const Alignment(-0.4, -0.4),
-      radius: 1.2,
-    ).createShader(Rect.fromCircle(center: Offset.zero, radius: r));
+        colors: [baseColor1, baseColor2, baseColor3],
+        center: const Alignment(-0.3, -0.4))
+        .createShader(Rect.fromCircle(center: Offset.zero, radius: r));
     paint.color = Colors.white.withOpacity(opacity);
     canvas.drawPath(path, paint);
     paint.shader = null;
 
-    // Glowing Resource Veins (only when healthy)
-    if (obs.damageState == DamageState.healthy) {
-      paint.style = PaintingStyle.stroke;
-      paint.strokeWidth = 2.0;
-      paint.color = const Color(0xFF00E5FF).withOpacity(0.8 + sin(animTick * 3) * 0.2);
-      paint.maskFilter = const MaskFilter.blur(BlurStyle.normal, 2);
-      final vein = Path()
-        ..moveTo(-r * 0.5, -r * 0.2)
-        ..lineTo(-r * 0.1, 0)
-        ..lineTo(r * 0.3, -r * 0.3)
-        ..moveTo(-r * 0.1, 0)
-        ..lineTo(r * 0.2, r * 0.5);
-      canvas.drawPath(vein, paint);
-      paint.style = PaintingStyle.fill;
-      paint.maskFilter = null;
-    }
-
     // Damage cracks overlay
-    if (obs.damageState == DamageState.damaged ||
-        obs.damageState == DamageState.critical) {
-      paint.color = Colors.white.withOpacity(
-          obs.damageState == DamageState.critical ? 0.5 : 0.25);
+    if (obs.damageState == DamageState.damaged || obs.damageState == DamageState.critical) {
+      paint.color = Colors.white.withOpacity(obs.damageState == DamageState.critical ? 0.5 : 0.25);
       paint.style = PaintingStyle.stroke;
-      paint.strokeWidth =
-          obs.damageState == DamageState.critical ? 1.5 : 0.8;
+      paint.strokeWidth = obs.damageState == DamageState.critical ? 1.5 : 0.8;
       final rng = Random(obs.shape.length);
-      for (int i = 0;
-          i < (obs.damageState == DamageState.critical ? 4 : 2);
-          i++) {
+      for (int i = 0; i < (obs.damageState == DamageState.critical ? 4 : 2); i++) {
         final a = rng.nextDouble() * 2 * pi;
         final crackPath = Path()
           ..moveTo(cos(a) * r * 0.2, sin(a) * r * 0.2)
@@ -379,259 +325,233 @@ class GamePainter extends CustomPainter {
       paint.style = PaintingStyle.fill;
     }
 
-    // Sharp Craters / Impact marks (only when healthy)
+    // Craters (only when healthy)
     if (obs.damageState == DamageState.healthy) {
-      paint.color = Colors.black.withOpacity(0.6);
-      canvas.drawOval(Rect.fromCenter(center: Offset(r * 0.3, r * 0.1), width: r * 0.4, height: r * 0.25), paint);
-      paint.color = Colors.white.withOpacity(0.1);
-      canvas.drawArc(Rect.fromCenter(center: Offset(r * 0.3, r * 0.1), width: r * 0.4, height: r * 0.25), pi, pi, false, paint);
+      paint.color = const Color(0xFF2A1A08).withOpacity(0.5);
+      canvas.drawCircle(Offset(-r * 0.25, -r * 0.15), r * 0.18, paint);
+      canvas.drawCircle(Offset(r * 0.3, r * 0.2), r * 0.12, paint);
+      paint.color = Colors.white.withOpacity(0.15);
+      canvas.drawCircle(Offset(-r * 0.3, -r * 0.3), r * 0.2, paint);
     }
 
     canvas.restore();
   }
 
-  // 3. MINE -> PROXIMITY PLASMA DRONE
   void _drawMine(Canvas canvas, Size size, Obstacle obs) {
     final cx = (obs.x + obs.width / 2) * size.width;
     final cy = (obs.y + obs.height / 2) * size.height;
     final r = obs.width * size.width * 0.5;
-    final pulse = sin(animTick * 8) * 0.3 + 0.7;
+    final pulse = sin(animTick * 5) * 0.3 + 0.7;
     final opacity = obs.damageOpacity;
-    final effectiveColor =
-        Color.lerp(obs.color, const Color(0xFF777777), obs.greyShift)!;
+    final effectiveColor = Color.lerp(obs.color, const Color(0xFF777777), obs.greyShift)!;
     final paint = Paint();
 
-    canvas.save();
-    canvas.translate(cx, cy);
-    canvas.rotate(obs.rotation * 2);
-
-    // Death animation — white explosion
+    // Death animation
     if (obs.isDying) {
       final t = obs.deathTimer;
-      paint.maskFilter = MaskFilter.blur(BlurStyle.normal, 20 * (1 - t));
+      paint.maskFilter = const MaskFilter.blur(BlurStyle.normal, 20 * (1-t));
       paint.color = Colors.white.withOpacity(1.0 - t);
-      canvas.drawCircle(Offset.zero, r * (1 + t * 2), paint);
+      canvas.drawCircle(Offset(cx, cy), r * (1 + t * 2), paint);
       paint.maskFilter = null;
-      canvas.restore();
       return;
     }
 
-    // Outer danger ring — pulsing red/orange halo
-    paint.maskFilter = const MaskFilter.blur(BlurStyle.normal, 18);
-    paint.color = const Color(0xFFFF2200).withOpacity(0.25 * pulse * opacity);
-    canvas.drawCircle(Offset.zero, r * 2.0, paint);
-    paint.maskFilter = null;
-
-    // Lethal Plasma Aura
     paint.maskFilter = const MaskFilter.blur(BlurStyle.normal, 14);
-    paint.color = effectiveColor.withOpacity(0.6 * pulse * opacity);
-    canvas.drawCircle(Offset.zero, r * 1.5, paint);
+    paint.color = effectiveColor.withOpacity(0.4 * pulse * opacity);
+    canvas.drawCircle(Offset(cx, cy), r + 8, paint);
     paint.maskFilter = null;
 
-    // Spinning warning dashes
-    paint.color = effectiveColor.withOpacity(0.4 * opacity);
+    paint.color = const Color(0xFF2A1208);
+    canvas.drawCircle(Offset(cx, cy), r * opacity, paint);
+    paint.color = effectiveColor.withOpacity(opacity);
     paint.style = PaintingStyle.stroke;
-    paint.strokeWidth = 1.5;
-    for (int i = 0; i < 8; i++) {
-      final a = (pi / 4) * i + animTick * 3;
-      canvas.drawArc(
-        Rect.fromCircle(center: Offset.zero, radius: r * 1.7),
-        a, 0.25, false, paint,
-      );
-    }
+    paint.strokeWidth = 2;
+    canvas.drawCircle(Offset(cx, cy), r, paint);
     paint.style = PaintingStyle.fill;
 
-    // Dark Metal Housing
-    paint.shader = RadialGradient(
-      colors: [const Color(0xFF444455), const Color(0xFF111115)],
-      center: const Alignment(-0.3, -0.3),
-    ).createShader(Rect.fromCircle(center: Offset.zero, radius: r));
-    canvas.drawCircle(Offset.zero, r, paint);
-    paint.shader = null;
-
-    // Mechanical Spikes (Sharp triangles)
-    paint.color = Colors.grey.shade400.withOpacity(opacity);
-    for (int i = 0; i < 6; i++) {
-      canvas.save();
-      canvas.rotate((pi / 3) * i);
-      final spike = Path()
-        ..moveTo(-r * 0.15, r * 0.9)
-        ..lineTo(r * 0.15, r * 0.9)
-        ..lineTo(0, r * 1.5)
-        ..close();
-      canvas.drawPath(spike, paint);
-      canvas.restore();
+    for (int i = 0; i < 8; i++) {
+      final angle = (pi / 4 * i) + obs.rotation;
+      paint.color = effectiveColor.withOpacity(0.8 * pulse * opacity);
+      paint.strokeWidth = 1.5;
+      paint.style = PaintingStyle.stroke;
+      canvas.drawLine(Offset(cx + cos(angle) * r, cy + sin(angle) * r),
+          Offset(cx + cos(angle) * (r + 7), cy + sin(angle) * (r + 7)), paint);
     }
-
-    // Inner Glowing Core (The "Eye")
-    paint.color = const Color(0xFF111111);
-    canvas.drawCircle(Offset.zero, r * 0.6, paint);
-
-    paint.maskFilter = const MaskFilter.blur(BlurStyle.normal, 5);
-    paint.color = effectiveColor.withOpacity(opacity);
-    canvas.drawCircle(Offset.zero, r * 0.4 * pulse, paint);
-    paint.maskFilter = null;
-
-    paint.color = Colors.white.withOpacity(opacity);
-    canvas.drawCircle(Offset.zero, r * 0.15, paint);
-
-    canvas.restore();
+    paint.style = PaintingStyle.fill;
+    paint.color = effectiveColor.withOpacity(pulse * opacity);
+    canvas.drawCircle(Offset(cx, cy), r * 0.35, paint);
   }
 
-  // 4. SWEEP BEAM -> ORBITAL STRIKE LASER
   void _drawSweepBeam(Canvas canvas, Size size, Obstacle obs) {
     if (obs.sweepDone) return;
     final beamY = obs.y * size.height;
     final beamH = obs.height * size.height;
     final paint = Paint();
-    final progress = obs.sweepFromLeft ? obs.sweepProgress : (1.0 - obs.sweepProgress);
+
+    paint.color = obs.color.withOpacity(0.06);
+    canvas.drawRect(Rect.fromLTWH(0, beamY, size.width, beamH), paint);
+
+    paint.color = obs.color.withOpacity(0.3);
+    paint.strokeWidth = 1;
+    paint.style = PaintingStyle.stroke;
+    for (double d = 0; d < size.width; d += 16) {
+      canvas.drawLine(Offset(d, beamY), Offset(d + 8, beamY), paint);
+      canvas.drawLine(
+          Offset(d, beamY + beamH), Offset(d + 8, beamY + beamH), paint);
+    }
+    paint.style = PaintingStyle.fill;
+
+    final progress =
+        obs.sweepFromLeft ? obs.sweepProgress : (1.0 - obs.sweepProgress);
     final headX = progress * size.width;
 
-    // 1. Scorched Earth Background (Where the beam has already melted)
-    final sweptRect = obs.sweepFromLeft
-        ? Rect.fromLTWH(0, beamY, max(0, headX), beamH)
-        : Rect.fromLTWH(headX, beamY, size.width - headX, beamH);
-
-    if (sweptRect.width > 0) {
-      // Scorched metal look
-      paint.shader = LinearGradient(
-        colors: [const Color(0xFF220000), Colors.transparent],
-        begin: Alignment.topCenter, end: Alignment.bottomCenter,
-      ).createShader(sweptRect);
-      canvas.drawRect(sweptRect, paint);
-      paint.shader = null;
-
-      // Cooling embers
-      paint.color = obs.color.withOpacity(0.3);
-      for (double x = sweptRect.left; x < sweptRect.right; x += 15) {
-        if (Random((x * 10).floor()).nextDouble() > 0.5) {
-          canvas.drawCircle(Offset(x, beamY + beamH * Random(x.floor()).nextDouble()), 1.5, paint);
-        }
+    if (obs.sweepFromLeft) {
+      final sweptRect = Rect.fromLTWH(0, beamY, max(0, headX - 20), beamH);
+      if (sweptRect.width > 0) {
+        paint.shader = LinearGradient(
+          colors: [obs.color.withOpacity(0.55), obs.color.withOpacity(0.35)],
+        ).createShader(sweptRect);
+        canvas.drawRect(sweptRect, paint);
+        paint.shader = null;
+      }
+    } else {
+      final sweptRect =
+          Rect.fromLTWH(headX + 20, beamY, size.width - headX - 20, beamH);
+      if (sweptRect.width > 0) {
+        paint.shader = LinearGradient(
+          colors: [obs.color.withOpacity(0.35), obs.color.withOpacity(0.55)],
+        ).createShader(sweptRect);
+        canvas.drawRect(sweptRect, paint);
+        paint.shader = null;
       }
     }
 
-    // 2. The Devastating Beam Head
-    final headRect = Rect.fromLTWH(headX - 30, beamY - 10, 60, beamH + 20);
-
-    // Massive Glow
-    paint.maskFilter = const MaskFilter.blur(BlurStyle.normal, 20);
-    paint.color = obs.color.withOpacity(0.8);
+    final headRect = Rect.fromLTWH(headX - 18, beamY - 4, 36, beamH + 8);
+    paint.maskFilter = const MaskFilter.blur(BlurStyle.normal, 14);
+    paint.color = Colors.white.withOpacity(0.7);
     canvas.drawRect(headRect, paint);
-
-    // Core Plasma
-    paint.maskFilter = const MaskFilter.blur(BlurStyle.normal, 4);
-    paint.color = Colors.white;
-    canvas.drawRect(Rect.fromLTWH(headX - 10, beamY, 20, beamH), paint);
     paint.maskFilter = null;
 
-    // Laser Emitter Housing (Top and Bottom clamps)
-    paint.color = const Color(0xFF222222);
-    canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromLTWH(headX - 15, beamY - 12, 30, 12), const Radius.circular(3)), paint);
-    canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromLTWH(headX - 15, beamY + beamH, 30, 12), const Radius.circular(3)), paint);
+    paint.shader = LinearGradient(
+      colors: [Colors.white, obs.color, obs.color.withOpacity(0)],
+      begin: obs.sweepFromLeft ? Alignment.centerRight : Alignment.centerLeft,
+      end: obs.sweepFromLeft ? Alignment.centerLeft : Alignment.centerRight,
+    ).createShader(Rect.fromLTWH(headX - 24, beamY, 48, beamH));
+    canvas.drawRect(Rect.fromLTWH(headX - 24, beamY, 48, beamH), paint);
+    paint.shader = null;
 
-    paint.color = obs.color;
-    canvas.drawRect(Rect.fromLTWH(headX - 8, beamY - 6, 16, 4), paint);
+    final rng = Random((animTick * 100).floor());
+    paint.color = Colors.white.withOpacity(0.6);
+    for (int i = 0; i < 5; i++) {
+      canvas.drawCircle(
+        Offset(headX + (rng.nextDouble() - 0.5) * 20,
+            beamY + rng.nextDouble() * beamH),
+        1.5 + rng.nextDouble() * 2.5,
+        paint,
+      );
+    }
 
-    // 3. Danger Text tracking the head
     final tp = TextPainter(
-      text: TextSpan(text: 'DANGER', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 2)),
+      text: TextSpan(
+          text: '⚠ SWEEP',
+          style: TextStyle(
+              color: obs.color,
+              fontSize: 9,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 2)),
       textDirection: TextDirection.ltr,
     );
     tp.layout();
-    tp.paint(canvas, Offset(headX - tp.width / 2, beamY - 26));
+    tp.paint(canvas, Offset(8, beamY - 14));
   }
 
-  // 5. PULSE GATE -> MEGASTRUCTURE PLASMA GATE
   void _drawPulseGate(Canvas canvas, Size size, Obstacle obs) {
-    final openness = (sin(obs.pulsePhase) + 1) / 2; // 0=closed, 1=open
+    final openness = (sin(obs.pulsePhase) + 1) / 2;
     final gapHalf = obs.gapHalfWidth * openness * size.width;
     final gapCX = obs.gapCenterX * size.width;
     final wallY = obs.y * size.height;
-    final wallH = obs.height * 2.5 * size.height; // Made it taller for grand scale
-    final pulse = sin(obs.pulsePhase * 4) * 0.4 + 0.6;
+    final wallH = obs.height * 2 * size.height;
+    const wallW = 10.0;
     final paint = Paint();
-
-    void drawGatePillar(Rect rect, bool isLeft) {
-      // Massive 3D Cylinder look
-      paint.shader = LinearGradient(
-        colors: [const Color(0xFF111115), const Color(0xFF333344), const Color(0xFF0A0A0E)],
-        stops: const [0.0, 0.5, 1.0],
-      ).createShader(rect);
-      canvas.drawRect(rect, paint);
-      paint.shader = null;
-
-      // Heavy armor plates
-      paint.color = Colors.black.withOpacity(0.5);
-      paint.style = PaintingStyle.stroke;
-      paint.strokeWidth = 2;
-      canvas.drawRect(rect, paint);
-      canvas.drawLine(Offset(rect.left, rect.top + wallH * 0.3), Offset(rect.right, rect.top + wallH * 0.3), paint);
-      canvas.drawLine(Offset(rect.left, rect.top + wallH * 0.7), Offset(rect.right, rect.top + wallH * 0.7), paint);
-      paint.style = PaintingStyle.fill;
-
-      // Energy Coils on the facing edge
-      final edgeX = isLeft ? rect.right - 12 : rect.left;
-      final coilRect = Rect.fromLTWH(edgeX, rect.top + 5, 12, rect.height - 10);
-
-      paint.color = const Color(0xFF1A1A1A);
-      canvas.drawRect(coilRect, paint);
-
-      paint.maskFilter = const MaskFilter.blur(BlurStyle.normal, 5);
-      paint.color = obs.color.withOpacity(0.8 * pulse);
-      canvas.drawRect(coilRect.deflate(2), paint);
-      paint.maskFilter = null;
-
-      paint.color = Colors.white.withOpacity(0.8);
-      for (double y = coilRect.top + 4; y < coilRect.bottom; y += 8) {
-        canvas.drawRect(Rect.fromLTWH(coilRect.left, y, coilRect.width, 2), paint);
-      }
-    }
+    final pulse = sin(obs.pulsePhase * 2) * 0.3 + 0.7;
 
     final leftW = gapCX - gapHalf;
-    if (leftW > 0) drawGatePillar(Rect.fromLTWH(0, wallY, leftW, wallH), true);
-
-    final rightStart = gapCX + gapHalf;
-    if (rightStart < size.width) drawGatePillar(Rect.fromLTWH(rightStart, wallY, size.width - rightStart, wallH), false);
-
-    // Lethal Plasma Web connecting the gap when closed
-    if (openness < 0.8) {
-      final webIntensity = 1.0 - openness;
-      paint.strokeWidth = 2.0;
-      paint.style = PaintingStyle.stroke;
-
-      for (int i = 0; i < 4; i++) {
-        final yOffset = wallY + (wallH * 0.2 * (i + 1));
-        final path = Path()..moveTo(gapCX - gapHalf, yOffset);
-
-        for (double x = gapCX - gapHalf; x <= gapCX + gapHalf; x += 10) {
-          final erratic = (Random((x * yOffset).floor()).nextDouble() - 0.5) * 15 * webIntensity;
-          path.lineTo(x, yOffset + erratic);
-        }
-
-        paint.maskFilter = const MaskFilter.blur(BlurStyle.normal, 4);
-        paint.color = obs.color.withOpacity(webIntensity * pulse);
-        canvas.drawPath(path, paint);
-
-        paint.maskFilter = null;
-        paint.color = Colors.white.withOpacity(webIntensity * 0.8);
-        canvas.drawPath(path, paint);
-      }
-      paint.style = PaintingStyle.fill;
+    if (leftW > 0) {
+      final leftRect = Rect.fromLTWH(0, wallY, leftW, wallH);
+      paint.maskFilter = const MaskFilter.blur(BlurStyle.normal, 10);
+      paint.color = obs.color.withOpacity(0.35 * pulse);
+      canvas.drawRect(leftRect.inflate(3), paint);
+      paint.maskFilter = null;
+      paint.shader = LinearGradient(
+        colors: [obs.color.withOpacity(0.8), obs.color.withOpacity(0.4)],
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+      ).createShader(leftRect);
+      canvas.drawRect(leftRect, paint);
+      paint.shader = null;
+      paint.maskFilter = const MaskFilter.blur(BlurStyle.normal, 8);
+      paint.color = obs.color.withOpacity(0.6 * pulse);
+      canvas.drawRect(Rect.fromLTWH(leftW - wallW, wallY, wallW, wallH), paint);
+      paint.maskFilter = null;
     }
 
-    // Holographic Status Text
-    final isOpen = openness > 0.4;
-    final textStr = isOpen ? '>>> CLEAR <<<' : '!!! LOCK !!!';
-    final textColor = isOpen ? Colors.greenAccent : Colors.redAccent;
+    final rightStart = gapCX + gapHalf;
+    if (rightStart < size.width) {
+      final rightRect =
+          Rect.fromLTWH(rightStart, wallY, size.width - rightStart, wallH);
+      paint.maskFilter = const MaskFilter.blur(BlurStyle.normal, 10);
+      paint.color = obs.color.withOpacity(0.35 * pulse);
+      canvas.drawRect(rightRect.inflate(3), paint);
+      paint.maskFilter = null;
+      paint.shader = LinearGradient(
+        colors: [obs.color.withOpacity(0.8), obs.color.withOpacity(0.4)],
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+      ).createShader(rightRect);
+      canvas.drawRect(rightRect, paint);
+      paint.shader = null;
+      paint.maskFilter = const MaskFilter.blur(BlurStyle.normal, 8);
+      paint.color = obs.color.withOpacity(0.6 * pulse);
+      canvas.drawRect(Rect.fromLTWH(rightStart, wallY, wallW, wallH), paint);
+      paint.maskFilter = null;
+    }
+
+    if (gapHalf > 4) {
+      final arcPaint = Paint()
+        ..color = obs.color.withOpacity(0.2 * (1.0 - openness))
+        ..strokeWidth = 1.5
+        ..style = PaintingStyle.stroke
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3);
+      final path = Path();
+      path.moveTo(gapCX - gapHalf, wallY + wallH / 2);
+      final rng = Random((obs.pulsePhase * 10).floor());
+      for (double x = gapCX - gapHalf; x <= gapCX + gapHalf; x += 4) {
+        path.lineTo(
+            x,
+            wallY +
+                wallH / 2 +
+                sin(x * 0.3 + obs.pulsePhase * 4) * 8 * (1.0 - openness));
+      }
+      canvas.drawPath(path, arcPaint);
+    }
+
+    final isOpen = openness > 0.35;
     final tp = TextPainter(
-      text: TextSpan(text: textStr, style: TextStyle(color: textColor.withOpacity(0.8), fontSize: 11, fontWeight: FontWeight.w900, letterSpacing: 2)),
+      text: TextSpan(
+        text: isOpen ? '◆ OPEN' : '◆ CLOSED',
+        style: TextStyle(
+            color: isOpen ? AppTheme.accent : obs.color,
+            fontSize: 8,
+            fontWeight: FontWeight.w900,
+            letterSpacing: 1.5),
+      ),
       textDirection: TextDirection.ltr,
     );
     tp.layout();
-    tp.paint(canvas, Offset(gapCX - tp.width / 2, wallY - 20));
+    tp.paint(canvas, Offset(gapCX - tp.width / 2, wallY - 14));
   }
 
-  // ─── COINS ──────────────────────────────────────────────────────────────────
+  // ── COINS ────────────────────────────────────────────────────────────────
 
   void _drawCoins(Canvas canvas, Size size) {
     final paint = Paint()..style = PaintingStyle.fill;
@@ -666,7 +586,7 @@ class GamePainter extends CustomPainter {
     }
   }
 
-  // ─── POWER-UPS ──────────────────────────────────────────────────────────────
+  // ── POWER-UPS ────────────────────────────────────────────────────────────
 
   void _drawPowerUps(Canvas canvas, Size size) {
     for (final pu in game.powerUps) {
@@ -746,6 +666,7 @@ class GamePainter extends CustomPainter {
       final pulse = sin(chest.pulsePhase) * 0.12 + 1.0;
       final float = sin(chest.pulsePhase * 0.8) * 3.0;
 
+      // Color based on reward type
       Color chestColor;
       String rewardLabel;
       switch (chest.reward) {
@@ -796,7 +717,7 @@ class GamePainter extends CustomPainter {
           center: Offset.zero, width: 26, height: 20));
       canvas.drawRRect(
           RRect.fromRectAndRadius(
-              Rect.fromCenter(center: const Offset(0, 2), width: 26, height: 16),
+              Rect.fromCenter(center: Offset(0, 2), width: 26, height: 16),
               const Radius.circular(3)),
           paint);
       paint.shader = null;
@@ -810,10 +731,10 @@ class GamePainter extends CustomPainter {
         begin: Alignment.topCenter,
         end: Alignment.bottomCenter,
       ).createShader(Rect.fromCenter(
-          center: const Offset(0, -6), width: 26, height: 10));
+          center: Offset(0, -6), width: 26, height: 10));
       canvas.drawRRect(
           RRect.fromRectAndRadius(
-              Rect.fromCenter(center: const Offset(0, -6), width: 26, height: 8),
+              Rect.fromCenter(center: Offset(0, -6), width: 26, height: 8),
               const Radius.circular(3)),
           paint);
       paint.shader = null;
@@ -863,7 +784,7 @@ class GamePainter extends CustomPainter {
     }
   }
 
-  // ─── PARTICLES ──────────────────────────────────────────────────────────────
+  // ── PARTICLES ────────────────────────────────────────────────────────────
 
   void _drawParticles(Canvas canvas, Size size) {
     final paint = Paint()
@@ -881,22 +802,20 @@ class GamePainter extends CustomPainter {
     paint.maskFilter = null;
   }
 
-  // ─── SHIP — 5 DISTINCT SHAPES ───────────────────────────────────────────────
+  // ── SHIP ─────────────────────────────────────────────────────────────────
 
   void _drawShip(Canvas canvas, Size size) {
     final p = game.player;
     final cx = p.x * size.width;
     final cy = p.y * size.height;
-    // Boosted the base radius visually by 20% to make them feel less "tiny"
     final r = p.size.toDouble() * 1.2;
     final color = p.color;
     final lean = p.velocityX * 80;
 
     canvas.save();
     canvas.translate(cx, cy);
-    canvas.skew(lean * 0.02, 0); // Slightly more dynamic lean
+    canvas.skew(lean * 0.02, 0);
 
-    // Shield - Made it look more like an energy bubble
     if (game.state.isShieldActive) {
       final sp = sin(animTick * 6) * 0.2 + 0.8;
       final shP = Paint()
@@ -908,7 +827,6 @@ class GamePainter extends CustomPainter {
           ],
         ).createShader(Rect.fromCircle(center: Offset.zero, radius: r + 18));
       canvas.drawCircle(Offset.zero, r + 18, shP);
-
       shP.shader = null;
       shP.color = Colors.white.withOpacity(0.4 * sp);
       shP.style = PaintingStyle.stroke;
@@ -916,7 +834,6 @@ class GamePainter extends CustomPainter {
       canvas.drawCircle(Offset.zero, r + 16, shP);
     }
 
-    // Draw skin-specific shape
     switch (p.skin) {
       case SkinType.phantom:
         drawPhantomShip(canvas, r, color, animTick);

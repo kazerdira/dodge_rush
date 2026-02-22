@@ -139,7 +139,7 @@ class GameProvider extends ChangeNotifier {
     _ghostTimer = 0;
     _targetX = null;
     _targetY = null;
-    _isFiring = true; // auto-fire: always shooting
+    _isFiring = false;
     _lastGapCenter = 0.5;
     _initStars();
     _gameLoop?.cancel();
@@ -392,18 +392,10 @@ class GameProvider extends ChangeNotifier {
             final cx = obs.x + obs.width / 2;
             final cy = obs.y + obs.height / 2;
             final dist = sqrt(pow(bullet.x - cx, 2) + pow(bullet.y - cy, 2));
-            hit = dist < obs.width * 0.7;
+            hit = dist < obs.width * 0.6;
             break;
-          case ObstacleType.laserWall:
-            // Rectangle hit test for walls
-            hit = bullet.x >= obs.x &&
-                bullet.x <= obs.x + obs.width &&
-                bullet.y >= obs.y &&
-                bullet.y <= obs.y + obs.height;
+          default:
             break;
-          case ObstacleType.sweepBeam:
-          case ObstacleType.pulseGate:
-            break; // not shootable (HP=0 guard above)
         }
 
         if (hit) {
@@ -427,26 +419,12 @@ class GameProvider extends ChangeNotifier {
       shakeIntensity = 5.0;
       _spawnExplosionParticles(cx, cy);
       // Chance to drop a treasure chest
-      if ((obs.type == ObstacleType.asteroid ||
-              obs.type == ObstacleType.mine ||
-              obs.type == ObstacleType.laserWall) &&
+      if ((obs.type == ObstacleType.asteroid || obs.type == ObstacleType.mine) &&
           _rng.nextDouble() < 0.45) {
         _spawnChest(cx, cy);
       }
       // Bonus score
-      switch (obs.type) {
-        case ObstacleType.asteroid:
-          state.score += 50;
-          break;
-        case ObstacleType.mine:
-          state.score += 30;
-          break;
-        case ObstacleType.laserWall:
-          state.score += 75;
-          break;
-        default:
-          state.score += 25;
-      }
+      state.score += obs.type == ObstacleType.asteroid ? 50 : 30;
     }
   }
 
@@ -679,7 +657,7 @@ class GameProvider extends ChangeNotifier {
   void _spawnMinefield() {
     final spd = 0.003 + state.difficulty * 0.0008;
     const mineColor = Color(0xFFFF6B2B);
-    const mineSize = 0.055;
+    const mineSize = 0.030;
     const cols = 6;
     const colW = 1.0 / cols;
     final colIndices = List.generate(cols, (i) => i)..shuffle(_rng);

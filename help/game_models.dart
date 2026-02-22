@@ -117,7 +117,6 @@ class Obstacle {
   int maxHp;
   int hp;
   DamageState get damageState {
-    if (maxHp == 0) return DamageState.healthy;
     if (hp <= 0) return DamageState.destroyed;
     final ratio = hp / maxHp;
     if (ratio > 0.66) return DamageState.healthy;
@@ -127,8 +126,8 @@ class Obstacle {
 
   // Visual death animation
   double deathTimer; // counts up after hp <= 0, obstacle removed when > 1.0
-  bool get isDying => maxHp > 0 && hp <= 0 && deathTimer < 1.0;
-  bool get isFullyDead => maxHp > 0 && hp <= 0 && deathTimer >= 1.0;
+  bool get isDying => hp <= 0 && deathTimer < 1.0;
+  bool get isFullyDead => hp <= 0 && deathTimer >= 1.0;
 
   // sweep beam
   double sweepProgress;
@@ -170,7 +169,7 @@ class Obstacle {
       case ObstacleType.mine:
         return 1;
       case ObstacleType.laserWall:
-        return 5; // laser walls ARE shootable
+        return 0; // laser walls are NOT shootable
       case ObstacleType.sweepBeam:
         return 0; // not shootable
       case ObstacleType.pulseGate:
@@ -182,7 +181,6 @@ class Obstacle {
 
   /// Returns opacity multiplier based on damage state for color fade effect
   double get damageOpacity {
-    if (maxHp == 0) return 1.0;
     if (hp <= 0) return deathTimer < 0.5 ? (1.0 - deathTimer * 2) : 0.0;
     switch (damageState) {
       case DamageState.healthy:
