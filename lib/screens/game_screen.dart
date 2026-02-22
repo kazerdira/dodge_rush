@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../providers/game_provider.dart';
 import '../providers/settings_provider.dart';
+import '../models/game_models.dart';
 import '../theme/app_theme.dart';
 import '../game/game_painter.dart';
 import 'game_over_screen.dart';
@@ -676,7 +677,9 @@ class _HUD extends StatelessWidget {
         ]),
 
         // Power-up bars
-        if (game.state.isShieldActive || game.state.isSlowActive) ...[
+        if (game.state.isShieldActive ||
+            game.state.isSlowActive ||
+            game.state.weaponTimer > 0) ...[
           const SizedBox(height: 8),
           Row(children: [
             if (game.state.isShieldActive) ...[
@@ -686,11 +689,28 @@ class _HUD extends StatelessWidget {
                   progress: game.state.shieldTimer / 6.0),
               const SizedBox(width: 8),
             ],
-            if (game.state.isSlowActive)
+            if (game.state.isSlowActive) ...[
               _PowerBar(
                   label: 'SLW',
                   color: AppTheme.slowColor,
                   progress: game.state.slowTimer / 5.0),
+              const SizedBox(width: 8),
+            ],
+            if (game.state.weaponTimer > 0)
+              _PowerBar(
+                  label: game.state.currentWeapon == WeaponType.rapidFire
+                      ? 'RPD'
+                      : game.state.currentWeapon == WeaponType.spread
+                          ? 'SPR'
+                          : game.state.currentWeapon == WeaponType.laser
+                              ? 'LSR'
+                              : 'WPN',
+                  color: game.state.currentWeapon == WeaponType.rapidFire
+                      ? Colors.yellowAccent
+                      : game.state.currentWeapon == WeaponType.spread
+                          ? Colors.orangeAccent
+                          : Colors.redAccent,
+                  progress: game.state.weaponTimer / 8.0),
           ]),
         ],
 

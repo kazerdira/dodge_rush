@@ -10,7 +10,16 @@ enum TrailStyle { clean, ghost, fire, scatter, wide }
 
 enum DamageState { healthy, damaged, critical, destroyed }
 
-enum TreasureReward { slowTime, extraLife, coins, shield, bomb }
+enum TreasureReward {
+  slowTime,
+  extraLife,
+  coins,
+  shield,
+  bomb,
+  weaponRapid,
+  weaponSpread,
+  weaponLaser
+}
 
 // Wall difficulty tiers — each has distinct HP, color, and visual armor
 enum WallTier {

@@ -743,15 +743,25 @@ class GameProvider extends ChangeNotifier {
   // ── CHEST SPAWN ────────────────────────────────────────────────────────────
 
   void _spawnChest(double x, double y) {
-    final rewards = TreasureReward.values;
-    // Bomb is rarest — 8% base chance within chest
+    // Bomb is rarest — 8%, weapons — 12% total (4% each)
     TreasureReward reward;
     final roll = _rng.nextDouble();
     if (roll < 0.08) {
       reward = TreasureReward.bomb;
+    } else if (roll < 0.12) {
+      reward = TreasureReward.weaponRapid;
+    } else if (roll < 0.16) {
+      reward = TreasureReward.weaponSpread;
+    } else if (roll < 0.20) {
+      reward = TreasureReward.weaponLaser;
     } else {
-      final others = rewards.where((r) => r != TreasureReward.bomb).toList();
-      reward = others[_rng.nextInt(others.length)];
+      const basics = [
+        TreasureReward.slowTime,
+        TreasureReward.extraLife,
+        TreasureReward.coins,
+        TreasureReward.shield
+      ];
+      reward = basics[_rng.nextInt(basics.length)];
     }
     final coinAmt = reward == TreasureReward.coins ? (3 + _rng.nextInt(8)) : 0;
     chests.add(TreasureChest(
@@ -1261,6 +1271,21 @@ class GameProvider extends ChangeNotifier {
         state.bombs = min(state.bombs + 1, 9);
         onRewardCollected?.call('💥 BOMB ACQUIRED');
         shakeIntensity = 6.0;
+        break;
+      case TreasureReward.weaponRapid:
+        state.currentWeapon = WeaponType.rapidFire;
+        state.weaponTimer = 8.0;
+        onRewardCollected?.call('🔫 RAPID FIRE');
+        break;
+      case TreasureReward.weaponSpread:
+        state.currentWeapon = WeaponType.spread;
+        state.weaponTimer = 8.0;
+        onRewardCollected?.call('🔫 SPREAD SHOT');
+        break;
+      case TreasureReward.weaponLaser:
+        state.currentWeapon = WeaponType.laser;
+        state.weaponTimer = 8.0;
+        onRewardCollected?.call('🔫 LASER BEAM');
         break;
     }
   }
