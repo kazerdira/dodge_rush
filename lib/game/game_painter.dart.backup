@@ -6,8 +6,6 @@ import '../theme/app_theme.dart';
 import 'painters/wall_painter.dart';
 import 'painters/chest_painter.dart';
 import 'painters/gate_painter.dart';
-import 'painters/mine_painter.dart';
-import 'painters/bullet_painter.dart';
 import 'ships/ships.dart';
 
 class GamePainter extends CustomPainter {
@@ -29,7 +27,7 @@ class GamePainter extends CustomPainter {
     _drawCoins(canvas, size);
     _drawPowerUps(canvas, size);
     drawChests(canvas, size, game.chests);
-    drawBullets(canvas, size, game.bullets);
+    _drawBullets(canvas, size);
     _drawParticles(canvas, size);
     _drawBombEffect(canvas, size);
     _drawShip(canvas, size);
@@ -42,18 +40,16 @@ class GamePainter extends CustomPainter {
 
   void _drawNebula(Canvas canvas, Size size) {
     final t = animTick * 0.12;
-    final pal = game.palette;
     final paint = Paint()
       ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 80)
       ..style = PaintingStyle.fill;
-    // Sector-colored nebula — visible tint
-    paint.color = pal.nebulaColor.withOpacity(0.22 + sin(t) * 0.04);
+    paint.color = AppTheme.purple.withOpacity(0.04 + sin(t) * 0.01);
     canvas.drawCircle(
-        Offset(size.width * 0.18, size.height * 0.35), 200, paint);
-    paint.color = pal.accentA.withOpacity(0.10 + cos(t * 0.8) * 0.03);
-    canvas.drawCircle(Offset(size.width * 0.82, size.height * 0.6), 180, paint);
-    paint.color = pal.accentB.withOpacity(0.07 + sin(t * 1.3) * 0.02);
-    canvas.drawCircle(Offset(size.width * 0.5, size.height * 0.12), 160, paint);
+        Offset(size.width * 0.18, size.height * 0.35), 170, paint);
+    paint.color = AppTheme.accentAlt.withOpacity(0.03 + cos(t * 0.8) * 0.01);
+    canvas.drawCircle(Offset(size.width * 0.82, size.height * 0.6), 150, paint);
+    paint.color = AppTheme.orange.withOpacity(0.025);
+    canvas.drawCircle(Offset(size.width * 0.5, size.height * 0.12), 130, paint);
     paint.maskFilter = null;
   }
 
@@ -88,7 +84,6 @@ class GamePainter extends CustomPainter {
       ..strokeWidth = 0.8
       ..style = PaintingStyle.stroke;
     final rng = Random(42);
-    final lineColor = game.palette.accentA;
     for (int side = 0; side < 2; side++) {
       for (int i = 0; i < 8; i++) {
         final x = side == 0
@@ -98,23 +93,27 @@ class GamePainter extends CustomPainter {
                 animTick * 180 * game.state.speed) %
             size.height;
         final len = 18.0 + rng.nextDouble() * 35;
-        paint.color = lineColor.withOpacity(0.07 * sp);
+        paint.color = AppTheme.accent.withOpacity(0.06 * sp);
         canvas.drawLine(Offset(x, y), Offset(x, y + len), paint);
       }
     }
   }
+
+  // ── SHOCKWAVES ──────────────────────────────────────────────────────────────
 
   void _drawShockwaves(Canvas canvas, Size size) {
     final paint = Paint()..style = PaintingStyle.stroke;
     for (final sw in game.shockwaves) {
       final r = sw.radius * size.width;
       final opacity = sw.life;
+      // Outer ring
       paint.strokeWidth = 3.0 * sw.life;
       paint.color = sw.color.withOpacity(opacity * 0.8);
       paint.maskFilter = MaskFilter.blur(BlurStyle.normal, 8 * sw.life);
       canvas.drawCircle(
           Offset(sw.x * size.width, sw.y * size.height), r, paint);
       paint.maskFilter = null;
+      // Inner bright ring
       paint.strokeWidth = 1.5 * sw.life;
       paint.color = Colors.white.withOpacity(opacity * 0.6);
       canvas.drawCircle(
@@ -123,38 +122,48 @@ class GamePainter extends CustomPainter {
     paint.style = PaintingStyle.fill;
   }
 
+  // ── BOMB VFX ────────────────────────────────────────────────────────────────
+
   void _drawBombEffect(Canvas canvas, Size size) {
     final bomb = game.activeBomb;
     if (bomb == null) return;
-    final t = bomb.detonationTimer;
+
+    final t = bomb.detonationTimer; // 0..1
     final cx = bomb.x * size.width;
     final cy = bomb.y * size.height;
     final paint = Paint()..style = PaintingStyle.fill;
 
+    // Phase 1 (0..0.3): Blinding white flash
     if (t < 0.3) {
       final flashT = t / 0.3;
-      paint.color = Colors.white.withOpacity((1.0 - flashT) * 0.95);
+      final opacity = (1.0 - flashT) * 0.95;
+      paint.color = Colors.white.withOpacity(opacity);
       canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), paint);
     }
 
+    // Phase 2 (0.1..1.0): Expanding plasma ring
     if (t > 0.05) {
       final ringT = ((t - 0.05) / 0.95).clamp(0.0, 1.0);
       final maxRadius =
           sqrt(size.width * size.width + size.height * size.height);
       final r = ringT * maxRadius;
       final ringOpacity = (1.0 - ringT) * 0.7;
+
       paint.style = PaintingStyle.stroke;
       paint.strokeWidth = 20.0 * (1.0 - ringT);
       paint.maskFilter = MaskFilter.blur(BlurStyle.normal, 15 * (1 - ringT));
       paint.color = const Color(0xFFFF6B00).withOpacity(ringOpacity);
       canvas.drawCircle(Offset(cx, cy), r, paint);
+
       paint.strokeWidth = 8.0 * (1.0 - ringT);
       paint.maskFilter = null;
       paint.color = Colors.white.withOpacity(ringOpacity * 0.8);
       canvas.drawCircle(Offset(cx, cy), r * 0.88, paint);
+
       paint.style = PaintingStyle.fill;
     }
 
+    // Phase 3 (0.2..0.8): Central fireball that expands then shrinks
     if (t > 0.2 && t < 0.8) {
       final fT = (t - 0.2) / 0.6;
       final fireRadius = size.width * 0.35 * sin(fT * pi);
@@ -199,6 +208,29 @@ class GamePainter extends CustomPainter {
     }
   }
 
+  // ── BULLETS ─────────────────────────────────────────────────────────────────
+
+  void _drawBullets(Canvas canvas, Size size) {
+    final paint = Paint()..style = PaintingStyle.fill;
+    for (final b in game.bullets) {
+      if (!b.active) continue;
+      final cx = b.x * size.width;
+      final cy = b.y * size.height;
+      paint.maskFilter = const MaskFilter.blur(BlurStyle.normal, 6);
+      paint.color = b.color.withOpacity(0.5);
+      canvas.drawOval(
+          Rect.fromCenter(center: Offset(cx, cy), width: 6, height: 16), paint);
+      paint.maskFilter = null;
+      paint.color = Colors.white;
+      canvas.drawOval(
+          Rect.fromCenter(center: Offset(cx, cy), width: 3, height: 9), paint);
+      paint.color = b.color;
+      canvas.drawCircle(Offset(cx, cy - 4), 2.5, paint);
+    }
+  }
+
+  // ── OBSTACLES ───────────────────────────────────────────────────────────────
+
   void _drawObstacles(Canvas canvas, Size size) {
     for (final obs in game.obstacles) {
       if (obs.isFullyDead) continue;
@@ -210,7 +242,7 @@ class GamePainter extends CustomPainter {
           _drawAsteroid(canvas, size, obs);
           break;
         case ObstacleType.mine:
-          drawMine(canvas, size, obs, animTick);
+          _drawMine(canvas, size, obs);
           break;
         case ObstacleType.sweepBeam:
           _drawSweepBeam(canvas, size, obs);
@@ -221,6 +253,8 @@ class GamePainter extends CustomPainter {
       }
     }
   }
+
+  // ── ASTEROID ────────────────────────────────────────────────────────────────
 
   void _drawAsteroid(Canvas canvas, Size size, Obstacle obs) {
     if (obs.shape.isEmpty) return;
@@ -233,6 +267,7 @@ class GamePainter extends CustomPainter {
     canvas.save();
     canvas.translate(cx, cy);
     canvas.rotate(obs.rotation);
+
     if (obs.isDying) {
       final t = obs.deathTimer;
       canvas.scale(1.0 + t * 0.8);
@@ -262,10 +297,10 @@ class GamePainter extends CustomPainter {
     final baseColor3 = Color.lerp(
         const Color(0xFF0A0A0A), const Color(0xFF444444), obs.greyShift)!;
     paint.shader = RadialGradient(
-            colors: [baseColor1, baseColor2, baseColor3],
-            center: const Alignment(-0.4, -0.4),
-            radius: 1.2)
-        .createShader(Rect.fromCircle(center: Offset.zero, radius: r));
+      colors: [baseColor1, baseColor2, baseColor3],
+      center: const Alignment(-0.4, -0.4),
+      radius: 1.2,
+    ).createShader(Rect.fromCircle(center: Offset.zero, radius: r));
     paint.color = Colors.white.withOpacity(opacity);
     canvas.drawPath(path, paint);
     paint.shader = null;
@@ -297,11 +332,10 @@ class GamePainter extends CustomPainter {
           i < (obs.damageState == DamageState.critical ? 5 : 2);
           i++) {
         final a = rng.nextDouble() * 2 * pi;
-        canvas.drawPath(
-            Path()
-              ..moveTo(cos(a) * r * 0.2, sin(a) * r * 0.2)
-              ..lineTo(cos(a + 0.3) * r * 0.8, sin(a + 0.3) * r * 0.8),
-            paint);
+        final crackPath = Path()
+          ..moveTo(cos(a) * r * 0.2, sin(a) * r * 0.2)
+          ..lineTo(cos(a + 0.3) * r * 0.8, sin(a + 0.3) * r * 0.8);
+        canvas.drawPath(crackPath, paint);
       }
       paint.style = PaintingStyle.fill;
     }
@@ -325,8 +359,89 @@ class GamePainter extends CustomPainter {
           false,
           paint);
     }
+
     canvas.restore();
   }
+
+  // ── MINE ────────────────────────────────────────────────────────────────────
+
+  void _drawMine(Canvas canvas, Size size, Obstacle obs) {
+    final cx = (obs.x + obs.width / 2) * size.width;
+    final cy = (obs.y + obs.height / 2) * size.height;
+    final r = obs.width * size.width * 0.5;
+    final pulse = sin(animTick * 8) * 0.3 + 0.7;
+    final opacity = obs.damageOpacity;
+    final effectiveColor =
+        Color.lerp(obs.color, const Color(0xFF777777), obs.greyShift)!;
+    final paint = Paint();
+
+    canvas.save();
+    canvas.translate(cx, cy);
+    canvas.rotate(obs.rotation * 2);
+
+    if (obs.isDying) {
+      final t = obs.deathTimer;
+      paint.maskFilter = MaskFilter.blur(BlurStyle.normal, 20 * (1 - t));
+      paint.color = Colors.white.withOpacity(1.0 - t);
+      canvas.drawCircle(Offset.zero, r * (1 + t * 3), paint);
+      paint.maskFilter = null;
+      canvas.restore();
+      return;
+    }
+
+    paint.maskFilter = const MaskFilter.blur(BlurStyle.normal, 18);
+    paint.color = const Color(0xFFFF2200).withOpacity(0.25 * pulse * opacity);
+    canvas.drawCircle(Offset.zero, r * 2.0, paint);
+    paint.maskFilter = null;
+
+    paint.maskFilter = const MaskFilter.blur(BlurStyle.normal, 14);
+    paint.color = effectiveColor.withOpacity(0.6 * pulse * opacity);
+    canvas.drawCircle(Offset.zero, r * 1.5, paint);
+    paint.maskFilter = null;
+
+    paint.color = effectiveColor.withOpacity(0.4 * opacity);
+    paint.style = PaintingStyle.stroke;
+    paint.strokeWidth = 1.5;
+    for (int i = 0; i < 8; i++) {
+      final a = (pi / 4) * i + animTick * 3;
+      canvas.drawArc(Rect.fromCircle(center: Offset.zero, radius: r * 1.7), a,
+          0.25, false, paint);
+    }
+    paint.style = PaintingStyle.fill;
+
+    paint.shader = RadialGradient(
+      colors: [const Color(0xFF444455), const Color(0xFF111115)],
+      center: const Alignment(-0.3, -0.3),
+    ).createShader(Rect.fromCircle(center: Offset.zero, radius: r));
+    canvas.drawCircle(Offset.zero, r, paint);
+    paint.shader = null;
+
+    paint.color = Colors.grey.shade400.withOpacity(opacity);
+    for (int i = 0; i < 6; i++) {
+      canvas.save();
+      canvas.rotate((pi / 3) * i);
+      final spike = Path()
+        ..moveTo(-r * 0.15, r * 0.9)
+        ..lineTo(r * 0.15, r * 0.9)
+        ..lineTo(0, r * 1.5)
+        ..close();
+      canvas.drawPath(spike, paint);
+      canvas.restore();
+    }
+
+    paint.color = const Color(0xFF111111);
+    canvas.drawCircle(Offset.zero, r * 0.6, paint);
+    paint.maskFilter = const MaskFilter.blur(BlurStyle.normal, 5);
+    paint.color = effectiveColor.withOpacity(opacity);
+    canvas.drawCircle(Offset.zero, r * 0.4 * pulse, paint);
+    paint.maskFilter = null;
+    paint.color = Colors.white.withOpacity(opacity);
+    canvas.drawCircle(Offset.zero, r * 0.15, paint);
+
+    canvas.restore();
+  }
+
+  // ── SWEEP BEAM ──────────────────────────────────────────────────────────────
 
   void _drawSweepBeam(Canvas canvas, Size size, Obstacle obs) {
     if (obs.sweepDone) return;
@@ -343,10 +458,10 @@ class GamePainter extends CustomPainter {
 
     if (sweptRect.width > 0) {
       paint.shader = LinearGradient(
-              colors: [const Color(0xFF220000), Colors.transparent],
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter)
-          .createShader(sweptRect);
+        colors: [const Color(0xFF220000), Colors.transparent],
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+      ).createShader(sweptRect);
       canvas.drawRect(sweptRect, paint);
       paint.shader = null;
       paint.color = obs.color.withOpacity(0.3);
@@ -368,6 +483,7 @@ class GamePainter extends CustomPainter {
     paint.color = Colors.white;
     canvas.drawRect(Rect.fromLTWH(headX - 10, beamY, 20, beamH), paint);
     paint.maskFilter = null;
+
     paint.color = const Color(0xFF222222);
     canvas.drawRRect(
         RRect.fromRectAndRadius(Rect.fromLTWH(headX - 15, beamY - 12, 30, 12),
@@ -380,9 +496,22 @@ class GamePainter extends CustomPainter {
         paint);
     paint.color = obs.color;
     canvas.drawRect(Rect.fromLTWH(headX - 8, beamY - 6, 16, 4), paint);
-    _drawText(canvas, 'DANGER', Offset(headX, beamY - 26), Colors.white, 10,
-        letterSpacing: 2);
+
+    final tp = TextPainter(
+      text: const TextSpan(
+          text: 'DANGER',
+          style: TextStyle(
+              color: Colors.white,
+              fontSize: 10,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 2)),
+      textDirection: TextDirection.ltr,
+    );
+    tp.layout();
+    tp.paint(canvas, Offset(headX - tp.width / 2, beamY - 26));
   }
+
+  // ── COINS ────────────────────────────────────────────────────────────────────
 
   void _drawCoins(Canvas canvas, Size size) {
     final paint = Paint()..style = PaintingStyle.fill;
@@ -392,18 +521,19 @@ class GamePainter extends CustomPainter {
       final cy = coin.y * size.height;
       final pulse = sin(coin.pulsePhase) * 0.15 + 1.0;
       final r = 9.0 * pulse;
+
       paint.maskFilter = const MaskFilter.blur(BlurStyle.normal, 10);
       paint.color = AppTheme.coinColor.withOpacity(0.35);
       canvas.drawCircle(Offset(cx, cy), r + 5, paint);
       paint.maskFilter = null;
-      paint.shader = RadialGradient(colors: [
-        const Color(0xFFFFF176),
-        AppTheme.coinColor,
-        const Color(0xFFFF8F00)
-      ], center: const Alignment(-0.35, -0.35))
-          .createShader(Rect.fromCircle(center: Offset(cx, cy), radius: r));
+
+      paint.shader = const RadialGradient(
+        colors: [Color(0xFFFFF176), AppTheme.coinColor, Color(0xFFFF8F00)],
+        center: Alignment(-0.35, -0.35),
+      ).createShader(Rect.fromCircle(center: Offset(cx, cy), radius: r));
       canvas.drawCircle(Offset(cx, cy), r, paint);
       paint.shader = null;
+
       paint.color = const Color(0xFFFF8F00).withOpacity(0.5);
       paint.style = PaintingStyle.stroke;
       paint.strokeWidth = 1.5;
@@ -414,6 +544,8 @@ class GamePainter extends CustomPainter {
     }
   }
 
+  // ── POWER-UPS ────────────────────────────────────────────────────────────────
+
   void _drawPowerUps(Canvas canvas, Size size) {
     for (final pu in game.powerUps) {
       if (pu.collected) continue;
@@ -421,6 +553,7 @@ class GamePainter extends CustomPainter {
       final cy = pu.y * size.height;
       final pulse = sin(pu.pulsePhase) * 0.2 + 1.0;
       const r = 15.0;
+
       Color color;
       String label;
       switch (pu.type) {
@@ -437,14 +570,17 @@ class GamePainter extends CustomPainter {
           label = '♥';
           break;
       }
+
       canvas.save();
       canvas.translate(cx, cy);
       canvas.rotate(pu.pulsePhase * 0.5);
+
       final paint = Paint()
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 14)
         ..color = color.withOpacity(0.4);
       canvas.drawCircle(Offset.zero, r * pulse + 6, paint);
       paint.maskFilter = null;
+
       final path = Path();
       for (int i = 0; i < 6; i++) {
         final angle = (pi / 3 * i) - pi / 6;
@@ -462,10 +598,23 @@ class GamePainter extends CustomPainter {
       canvas.drawPath(path, paint);
       paint.style = PaintingStyle.fill;
       canvas.restore();
-      _drawText(canvas, label, Offset(cx, cy), color, 8,
-          letterSpacing: 0.5, centered: true);
+
+      final tp = TextPainter(
+        text: TextSpan(
+            text: label,
+            style: TextStyle(
+                color: color,
+                fontSize: 8,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 0.5)),
+        textDirection: TextDirection.ltr,
+      );
+      tp.layout();
+      tp.paint(canvas, Offset(cx - tp.width / 2, cy - tp.height / 2));
     }
   }
+
+  // ── PARTICLES ────────────────────────────────────────────────────────────────
 
   void _drawParticles(Canvas canvas, Size size) {
     final paint = Paint()..style = PaintingStyle.fill;
@@ -473,7 +622,9 @@ class GamePainter extends CustomPainter {
       final life = p['life'] as double;
       final isDebris = p['isDebris'] as bool? ?? false;
       final pSize = (p['size'] as double) * life;
+
       if (isDebris) {
+        // Draw debris as rectangles
         paint.maskFilter = null;
         paint.color = (p['color'] as Color).withOpacity(life.clamp(0.0, 1.0));
         canvas.save();
@@ -498,14 +649,15 @@ class GamePainter extends CustomPainter {
     paint.maskFilter = null;
   }
 
+  // ── SHIP ─────────────────────────────────────────────────────────────────────
+
   void _drawShip(Canvas canvas, Size size) {
     final p = game.player;
     final cx = p.x * size.width;
     final cy = p.y * size.height;
     final r = p.size.toDouble() * 1.2;
     final color = p.color;
-    final rawLean = p.velocityX * 30;
-    final lean = rawLean.abs() < 0.8 ? 0.0 : rawLean;
+    final lean = p.velocityX * 30;
 
     canvas.save();
     canvas.translate(cx, cy);
@@ -548,28 +700,6 @@ class GamePainter extends CustomPainter {
     }
 
     canvas.restore();
-  }
-
-  void _drawText(
-      Canvas canvas, String text, Offset center, Color color, double fontSize,
-      {double letterSpacing = 0, bool centered = true}) {
-    final tp = TextPainter(
-      text: TextSpan(
-          text: text,
-          style: TextStyle(
-              color: color,
-              fontSize: fontSize,
-              fontWeight: FontWeight.w900,
-              letterSpacing: letterSpacing,
-              fontFamily: 'Courier')),
-      textDirection: TextDirection.ltr,
-    );
-    tp.layout();
-    tp.paint(
-        canvas,
-        centered
-            ? Offset(center.dx - tp.width / 2, center.dy - tp.height / 2)
-            : center);
   }
 
   @override
