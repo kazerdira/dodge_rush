@@ -3,229 +3,251 @@ import 'dart:math';
 import '../../models/game_models.dart';
 import '../../theme/app_theme.dart';
 
-/// Renders treasure chests colored by sector palette + reward type.
+// ─────────────────────────────────────────────────────────────────────────────
+// CHEST PAINTER — Grounded, readable treasure chests
+// Philosophy: A treasure chest should look like a PHYSICAL OBJECT floating
+// in space, not a glowing blob. The gem/lock is the single light source.
+// Top face lit, bottom in shadow. Metal bands are brushed steel.
+// ─────────────────────────────────────────────────────────────────────────────
+
 void drawChests(Canvas canvas, Size size, List<TreasureChest> chests) {
   final paint = Paint()..style = PaintingStyle.fill;
   for (final chest in chests) {
     if (chest.collected) continue;
     final cx = chest.x * size.width;
     final cy = chest.y * size.height;
-    final pulse = sin(chest.pulsePhase) * 0.12 + 1.0;
-    final float = sin(chest.pulsePhase * 0.8) * 4.0;
+    // Gentle float — keep it but reduce amplitude
+    final float = sin(chest.pulsePhase * 0.8) * 2.5;
     final isBomb = chest.reward == TreasureReward.bomb;
     final isWeapon = chest.reward == TreasureReward.weaponRapid ||
         chest.reward == TreasureReward.weaponSpread ||
         chest.reward == TreasureReward.weaponLaser;
 
-    // Sector palette drives chest base color for non-special chests
     final pal = sectorPalette(chest.sectorIndex);
 
-    Color chestColor;
+    Color gemColor;
     String rewardLabel;
     switch (chest.reward) {
       case TreasureReward.slowTime:
-        chestColor = AppTheme.slowColor;
+        gemColor = AppTheme.slowColor;
         rewardLabel = '⏱';
         break;
       case TreasureReward.extraLife:
-        chestColor = AppTheme.danger;
+        gemColor = AppTheme.danger;
         rewardLabel = '♥';
         break;
       case TreasureReward.coins:
-        chestColor = AppTheme.coinColor;
+        gemColor = AppTheme.coinColor;
         rewardLabel = '✦${chest.coinAmount}';
         break;
       case TreasureReward.shield:
-        chestColor = AppTheme.accentAlt;
+        gemColor = AppTheme.accentAlt;
         rewardLabel = '◉';
         break;
       case TreasureReward.bomb:
-        chestColor = const Color(0xFFFF6B00);
+        gemColor = const Color(0xFFFF6B00);
         rewardLabel = '💥';
         break;
       case TreasureReward.weaponRapid:
-        chestColor = Colors.yellowAccent;
+        gemColor = Colors.yellowAccent;
         rewardLabel = '⚡';
         break;
       case TreasureReward.weaponSpread:
-        chestColor = Colors.orangeAccent;
+        gemColor = Colors.orangeAccent;
         rewardLabel = '✦';
         break;
       case TreasureReward.weaponLaser:
-        chestColor = Colors.redAccent;
+        gemColor = Colors.redAccent;
         rewardLabel = '⟐';
         break;
     }
 
-    // For non-special chests, blend with sector color
     if (!isBomb && !isWeapon) {
-      chestColor = Color.lerp(chestColor, pal.chestColor, 0.35)!;
+      gemColor = Color.lerp(gemColor, pal.chestColor, 0.30)!;
     }
 
     canvas.save();
     canvas.translate(cx, cy + float);
 
-    // Outer glow
-    paint.maskFilter = MaskFilter.blur(BlurStyle.normal, isBomb ? 26 : isWeapon ? 22 : 18);
-    paint.color = chestColor.withOpacity(isBomb ? 0.75 : 0.55);
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(
-        Rect.fromCenter(center: Offset.zero, width: 44 * pulse, height: 36 * pulse),
-        const Radius.circular(6),
-      ),
+    // ── SUBTLE FLOOR SHADOW (not a bloom — a contact shadow below the chest)
+    paint.maskFilter = const MaskFilter.blur(BlurStyle.normal, 8);
+    paint.color = Colors.black.withOpacity(0.35);
+    canvas.drawOval(
+      Rect.fromCenter(center: const Offset(0, 22), width: 36, height: 6),
       paint,
     );
     paint.maskFilter = null;
 
-    // Chest body (base)
+    // ── CHEST BODY ────────────────────────────────────────────────────────
+    // Dark base wood/metal color derived from isBomb/isWeapon/sector
+    final bodyBase = isBomb
+        ? const Color(0xFF3A1500)
+        : isWeapon
+            ? const Color(0xFF1A1A00)
+            : Color.lerp(const Color(0xFF6B4E12), pal.chestColor, 0.25)!;
+
+    // Bottom box
     paint.shader = LinearGradient(
-      colors: isBomb
-          ? [const Color(0xFF3A1500), const Color(0xFF1A0800), const Color(0xFF0A0400)]
-          : isWeapon
-              ? [const Color(0xFF1A1A00), const Color(0xFF0D0D00), const Color(0xFF050500)]
-              : [
-                  Color.lerp(const Color(0xFF8B6914), pal.chestColor, 0.3)!,
-                  Color.lerp(const Color(0xFF5C4409), pal.chestColor, 0.2)!,
-                  Color.lerp(const Color(0xFF3A2A05), pal.chestColor, 0.1)!,
-                ],
+      colors: [
+        Color.lerp(bodyBase, Colors.white, 0.08)!, // top edge of box (slightly lit)
+        bodyBase,
+        Color.lerp(bodyBase, Colors.black, 0.40)!, // bottom in shadow
+      ],
       begin: Alignment.topCenter,
       end: Alignment.bottomCenter,
-    ).createShader(Rect.fromCenter(center: const Offset(0, 3), width: 40, height: 24));
+    ).createShader(
+      Rect.fromCenter(center: const Offset(0, 6), width: 40, height: 22),
+    );
     canvas.drawRRect(
       RRect.fromRectAndRadius(
-        Rect.fromCenter(center: const Offset(0, 3), width: 40, height: 22),
-        const Radius.circular(4),
+        Rect.fromCenter(center: const Offset(0, 6), width: 40, height: 20),
+        const Radius.circular(3),
       ),
       paint,
     );
     paint.shader = null;
 
-    // Chest lid
+    // ── LID ───────────────────────────────────────────────────────────────
+    final lidBase = Color.lerp(bodyBase, Colors.white, 0.15)!;
     paint.shader = LinearGradient(
-      colors: isBomb
-          ? [const Color(0xFF5A2200), const Color(0xFF3A1400)]
-          : isWeapon
-              ? [const Color(0xFF333300), const Color(0xFF1A1A00)]
-              : [
-                  Color.lerp(const Color(0xFFB8860B), pal.chestColor, 0.4)!,
-                  Color.lerp(const Color(0xFF8B6914), pal.chestColor, 0.3)!,
-                ],
+      colors: [
+        Color.lerp(lidBase, Colors.white, 0.22)!, // front top face (top-lit)
+        lidBase,
+        Color.lerp(lidBase, Colors.black, 0.18)!,
+      ],
       begin: Alignment.topCenter,
       end: Alignment.bottomCenter,
-    ).createShader(Rect.fromCenter(center: const Offset(0, -9), width: 40, height: 14));
+    ).createShader(
+      Rect.fromCenter(center: const Offset(0, -7), width: 40, height: 14),
+    );
     canvas.drawRRect(
       RRect.fromRectAndRadius(
-        Rect.fromCenter(center: const Offset(0, -9), width: 40, height: 12),
-        const Radius.circular(4),
+        Rect.fromCenter(center: const Offset(0, -7), width: 40, height: 12),
+        const Radius.circular(3),
       ),
       paint,
     );
     paint.shader = null;
 
-    // Metal band
-    paint.color = chestColor.withOpacity(0.85);
+    // ── METAL BANDS ───────────────────────────────────────────────────────
+    // Brushed steel look — gradient from slightly lighter to darker
     paint.style = PaintingStyle.stroke;
-    paint.strokeWidth = 2.0;
+    paint.strokeWidth = 2.2;
+    paint.shader = LinearGradient(
+      colors: [
+        Colors.grey.shade400.withOpacity(0.85),
+        Colors.grey.shade700.withOpacity(0.85),
+      ],
+    ).createShader(const Rect.fromLTWH(-20, -3, 40, 4));
     canvas.drawLine(const Offset(-20, -3), const Offset(20, -3), paint);
+    paint.shader = null;
 
-    // Corner bands
     paint.strokeWidth = 1.5;
-    paint.color = chestColor.withOpacity(0.6);
-    canvas.drawLine(const Offset(-20, -14), const Offset(-20, 14), paint);
-    canvas.drawLine(const Offset(20, -14), const Offset(20, 14), paint);
-    canvas.drawLine(const Offset(0, -14), const Offset(0, 14), paint);
-
-    // Padlock gem
+    paint.color = Colors.grey.shade600.withOpacity(0.70);
+    canvas.drawLine(const Offset(-20, -13), const Offset(-20, 13), paint);
+    canvas.drawLine(const Offset(20, -13), const Offset(20, 13), paint);
+    canvas.drawLine(const Offset(0, -13), const Offset(0, 13), paint);
     paint.style = PaintingStyle.fill;
-    paint.color = chestColor;
-    paint.maskFilter = MaskFilter.blur(BlurStyle.normal, isBomb ? 9 : 5);
-    canvas.drawCircle(Offset.zero, 5.5 * pulse, paint);
-    paint.maskFilter = null;
-    paint.color = Colors.white.withOpacity(0.95);
-    canvas.drawCircle(Offset.zero, 3.0, paint);
 
-    // Radiating glow lines
-    paint.color = chestColor.withOpacity(0.5);
-    paint.strokeWidth = 0.8;
-    paint.style = PaintingStyle.stroke;
-    for (int i = 0; i < 8; i++) {
-      final a = (pi / 4 * i) + chest.pulsePhase * 0.5;
-      canvas.drawLine(
-        Offset(cos(a) * 8, sin(a) * 8),
-        Offset(cos(a) * (18 + pulse * 4), sin(a) * (18 + pulse * 4)),
-        paint,
-      );
+    // Band rivet nubs at band/corner intersections
+    paint.color = Colors.grey.shade400.withOpacity(0.6);
+    for (final bx in [-20.0, 0.0, 20.0]) {
+      canvas.drawCircle(Offset(bx, -3), 1.5, paint);
+      canvas.drawCircle(Offset(bx, 13), 1.5, paint);
     }
-    paint.style = PaintingStyle.fill;
 
-    // Bomb chest extra: danger border
-    if (isBomb) {
-      paint.color = chestColor.withOpacity(0.5);
+    // ── GEM / PADLOCK ─────────────────────────────────────────────────────
+    // Socket
+    paint.color = Colors.black.withOpacity(0.7);
+    canvas.drawCircle(Offset.zero, 6.5, paint);
+
+    // Gem body — radial gradient (jewel-like, physically real)
+    paint.shader = RadialGradient(
+      colors: [
+        Color.lerp(gemColor, Colors.white, 0.5)!,
+        gemColor,
+        Color.lerp(gemColor, Colors.black, 0.4)!,
+      ],
+      center: const Alignment(-0.3, -0.35),
+    ).createShader(Rect.fromCircle(center: Offset.zero, radius: 5.5));
+    canvas.drawCircle(Offset.zero, 5.0, paint);
+    paint.shader = null;
+
+    // Gem glint — single bright highlight, no blur needed
+    paint.color = Colors.white.withOpacity(0.75);
+    canvas.drawCircle(const Offset(-1.8, -1.8), 1.5, paint);
+
+    // ── WEAPON CHEST BOLT PATTERN ─────────────────────────────────────────
+    if (isWeapon) {
+      paint.color = gemColor.withOpacity(0.60);
       paint.style = PaintingStyle.stroke;
-      paint.strokeWidth = 1.0;
-      canvas.drawRect(
-        Rect.fromCenter(center: Offset.zero, width: 44 * pulse, height: 36 * pulse),
-        paint,
-      );
+      paint.strokeWidth = 1.5;
+      final bolt = Path()
+        ..moveTo(-3.5, -13)
+        ..lineTo(1, -7)
+        ..lineTo(-2, -7)
+        ..lineTo(3.5, -1)
+        ..lineTo(-1, -5)
+        ..lineTo(2.5, -5)
+        ..lineTo(-3.5, -13);
+      canvas.drawPath(bolt, paint);
       paint.style = PaintingStyle.fill;
     }
 
-    // Weapon chest extra: lightning bolt pattern on lid
-    if (isWeapon) {
-      paint.color = chestColor.withOpacity(0.7);
+    // ── DANGER BORDER for bomb ────────────────────────────────────────────
+    if (isBomb) {
+      paint.color = gemColor.withOpacity(0.40);
       paint.style = PaintingStyle.stroke;
-      paint.strokeWidth = 1.5;
-      final boltPath = Path()
-        ..moveTo(-4, -14)
-        ..lineTo(1, -7)
-        ..lineTo(-2, -7)
-        ..lineTo(4, 0)
-        ..lineTo(-1, -4)
-        ..lineTo(3, -4)
-        ..lineTo(-4, -14);
-      canvas.drawPath(boltPath, paint);
+      paint.strokeWidth = 1.0;
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromCenter(center: Offset.zero, width: 44, height: 36),
+          const Radius.circular(5),
+        ),
+        paint,
+      );
       paint.style = PaintingStyle.fill;
     }
 
     canvas.restore();
 
-    // Reward label below chest
+    // Reward label below
     final tp = TextPainter(
       text: TextSpan(
         text: rewardLabel,
         style: TextStyle(
-          color: chestColor,
-          fontSize: chest.reward == TreasureReward.coins ? 9 : 12,
+          color: gemColor,
+          fontSize: chest.reward == TreasureReward.coins ? 9 : 11,
           fontWeight: FontWeight.w900,
         ),
       ),
       textDirection: TextDirection.ltr,
     );
     tp.layout();
-    tp.paint(canvas, Offset(cx - tp.width / 2, cy + float + 20));
+    tp.paint(canvas, Offset(cx - tp.width / 2, cy + float + 19));
 
-    // Special tags
     if (isBomb) {
-      final rareTp = TextPainter(
-        text: TextSpan(
-          text: 'RARE',
-          style: TextStyle(color: chestColor.withOpacity(0.8), fontSize: 7, fontWeight: FontWeight.w900, letterSpacing: 2),
-        ),
-        textDirection: TextDirection.ltr,
-      );
-      rareTp.layout();
-      rareTp.paint(canvas, Offset(cx - rareTp.width / 2, cy + float + 34));
+      _smallTag(canvas, 'RARE', cx, cy + float + 32, gemColor);
     }
     if (isWeapon) {
-      final wepTp = TextPainter(
-        text: TextSpan(
-          text: 'WEAPON',
-          style: TextStyle(color: chestColor.withOpacity(0.8), fontSize: 7, fontWeight: FontWeight.w900, letterSpacing: 1.5),
-        ),
-        textDirection: TextDirection.ltr,
-      );
-      wepTp.layout();
-      wepTp.paint(canvas, Offset(cx - wepTp.width / 2, cy + float + 34));
+      _smallTag(canvas, 'WEAPON', cx, cy + float + 32, gemColor);
     }
   }
+}
+
+void _smallTag(Canvas canvas, String text, double cx, double cy, Color color) {
+  final tp = TextPainter(
+    text: TextSpan(
+      text: text,
+      style: TextStyle(
+        color: color.withOpacity(0.75),
+        fontSize: 7,
+        fontWeight: FontWeight.w900,
+        letterSpacing: 1.5,
+      ),
+    ),
+    textDirection: TextDirection.ltr,
+  );
+  tp.layout();
+  tp.paint(canvas, Offset(cx - tp.width / 2, cy));
 }

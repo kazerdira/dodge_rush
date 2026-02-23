@@ -2,10 +2,15 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import '../../models/game_models.dart';
 
-/// Draws mine obstacles with 3 distinct visual identities:
-/// - PROXIMITY: Classic naval mine with spikes and blinking red core
-/// - TRACKER: Sleek scanning eye with rotating sonar ring
-/// - CLUSTER: Segmented bomb body with visible child indicators
+// ─────────────────────────────────────────────────────────────────────────────
+// MINE PAINTER — Grounded, physical design
+// Key changes from old version:
+// • No giant ambient aura blur rings (those cheapened the look)
+// • Surfaces shaded by single top-left light source
+// • Glows ONLY on indicator lights and actual energy sources
+// • Metal rendered with radial gradients (sheen), not flat colors
+// ─────────────────────────────────────────────────────────────────────────────
+
 void drawMine(Canvas canvas, Size size, Obstacle obs, double animTick) {
   final cx = (obs.x + obs.width / 2) * size.width;
   final cy = (obs.y + obs.height / 2) * size.height;
@@ -22,216 +27,222 @@ void drawMine(Canvas canvas, Size size, Obstacle obs, double animTick) {
 
   switch (type) {
     case MineType.proximity:
-      _drawProximityMine(canvas, cx, cy, r, effectiveColor, opacity,
-          obs.pulsePhase, obs.rotation);
+      _drawProximityMine(canvas, cx, cy, r, effectiveColor, opacity, obs.pulsePhase, obs.rotation);
       break;
     case MineType.tracker:
-      _drawTrackerMine(
-          canvas, cx, cy, r, effectiveColor, opacity, obs.pulsePhase, animTick);
+      _drawTrackerMine(canvas, cx, cy, r, effectiveColor, opacity, obs.pulsePhase, animTick);
       break;
     case MineType.cluster:
-      _drawClusterMine(
-          canvas, cx, cy, r, effectiveColor, opacity, obs.pulsePhase, animTick);
+      _drawClusterMine(canvas, cx, cy, r, effectiveColor, opacity, obs.pulsePhase, animTick);
       break;
   }
 }
 
 // ── PROXIMITY MINE ─────────────────────────────────────────────────────────
-// Hexagonal body, 8 sharp spikes, blinking red danger core
 void _drawProximityMine(Canvas canvas, double cx, double cy, double r,
     Color color, double opacity, double pulsePhase, double rotation) {
   final paint = Paint()..style = PaintingStyle.fill;
-  final pulse = sin(pulsePhase) * 0.3 + 0.7;
-
-  // Outer danger glow
-  paint.maskFilter = MaskFilter.blur(BlurStyle.normal, 22);
-  paint.color = const Color(0xFFFF2200).withOpacity(0.20 * pulse * opacity);
-  canvas.drawCircle(Offset(cx, cy), r * 2.2, paint);
-  paint.maskFilter = null;
+  final blink = (sin(pulsePhase * 3) > 0) ? 1.0 : 0.25;
 
   canvas.save();
   canvas.translate(cx, cy);
   canvas.rotate(rotation * 2);
 
-  // Hexagonal main body
+  // Hexagonal body — metallic radial shading (no blur)
   final hexPath = Path();
   for (int i = 0; i < 6; i++) {
     final a = (pi / 3 * i) - pi / 6;
-    final px = cos(a) * r;
-    final py = sin(a) * r;
-    if (i == 0)
-      hexPath.moveTo(px, py);
-    else
-      hexPath.lineTo(px, py);
+    if (i == 0) hexPath.moveTo(cos(a) * r, sin(a) * r);
+    else hexPath.lineTo(cos(a) * r, sin(a) * r);
   }
   hexPath.close();
 
+  // Metal body with top-left lit shading
   paint.shader = RadialGradient(
     colors: [
-      const Color(0xFF2A2A30),
-      const Color(0xFF111115),
-      const Color(0xFF050508)
+      const Color(0xFF5A5A68), // lit surface (top-left)
+      const Color(0xFF2A2A32),
+      const Color(0xFF080810),
     ],
-    center: const Alignment(-0.3, -0.3),
+    center: const Alignment(-0.35, -0.35),
   ).createShader(Rect.fromCircle(center: Offset.zero, radius: r));
   canvas.drawPath(hexPath, paint);
   paint.shader = null;
 
-  // Hex border
+  // Edge outline
   paint.style = PaintingStyle.stroke;
-  paint.strokeWidth = 2.0;
-  paint.color = color.withOpacity(0.7 * opacity);
+  paint.strokeWidth = 1.5;
+  paint.color = const Color(0xFF0C0C14).withOpacity(opacity);
   canvas.drawPath(hexPath, paint);
   paint.style = PaintingStyle.fill;
 
-  // 8 Spikes
-  paint.color = const Color(0xFFBBBBCC).withOpacity(opacity);
+  // Spikes — metallic tapered rods
   for (int i = 0; i < 8; i++) {
     final a = (pi / 4) * i;
     canvas.save();
     canvas.rotate(a);
+
     final spike = Path()
-      ..moveTo(-r * 0.12, r * 0.82)
-      ..lineTo(r * 0.12, r * 0.82)
-      ..lineTo(0, r * 1.55)
+      ..moveTo(-r * 0.10, r * 0.84)
+      ..lineTo(r * 0.10, r * 0.84)
+      ..lineTo(r * 0.03, r * 1.52)
+      ..lineTo(-r * 0.03, r * 1.52)
       ..close();
+
+    // Spike shading — lit on left face
+    paint.shader = LinearGradient(
+      colors: [const Color(0xFF888898), const Color(0xFF323240)],
+      begin: Alignment.centerLeft,
+      end: Alignment.centerRight,
+    ).createShader(Rect.fromLTWH(-r * 0.10, r * 0.84, r * 0.20, r * 0.70));
     canvas.drawPath(spike, paint);
-    // Spike tip glow
-    paint.maskFilter = MaskFilter.blur(BlurStyle.normal, 3);
-    paint.color = const Color(0xFFFF4400).withOpacity(0.6 * opacity);
-    canvas.drawCircle(Offset(0, r * 1.52), r * 0.08, paint);
+    paint.shader = null;
+
+    // Spike tip indicator light — small, tight
+    paint.maskFilter = const MaskFilter.blur(BlurStyle.normal, 2.5);
+    paint.color = const Color(0xFFFF2200).withOpacity(0.7 * blink * opacity);
+    canvas.drawCircle(Offset(0, r * 1.50), r * 0.07, paint);
     paint.maskFilter = null;
-    paint.color = const Color(0xFFBBBBCC).withOpacity(opacity);
+    paint.color = Colors.white.withOpacity(0.85 * blink * opacity);
+    canvas.drawCircle(Offset(0, r * 1.50), r * 0.04, paint);
+
     canvas.restore();
   }
 
-  // Panel screws at hex corners
-  paint.color = const Color(0xFF444455).withOpacity(opacity);
+  // Panel screws
+  paint.color = const Color(0xFF3A3A48).withOpacity(opacity);
   for (int i = 0; i < 6; i++) {
     final a = (pi / 3 * i) - pi / 6;
-    canvas.drawCircle(
-        Offset(cos(a) * r * 0.78, sin(a) * r * 0.78), r * 0.07, paint);
+    canvas.drawCircle(Offset(cos(a) * r * 0.76, sin(a) * r * 0.76), r * 0.065, paint);
+    paint.color = Colors.white.withOpacity(0.12 * opacity);
+    canvas.drawCircle(Offset(cos(a) * r * 0.74, sin(a) * r * 0.74), r * 0.025, paint);
+    paint.color = const Color(0xFF3A3A48).withOpacity(opacity);
   }
 
-  // Blinking red core with warning ring
-  final blink = (sin(pulsePhase * 3) > 0) ? 1.0 : 0.3;
-  paint.maskFilter = MaskFilter.blur(BlurStyle.normal, 8 * blink);
-  paint.color = const Color(0xFFFF0000).withOpacity(0.8 * blink * opacity);
-  canvas.drawCircle(Offset.zero, r * 0.38 * pulse, paint);
-  paint.maskFilter = null;
-  paint.color = Colors.white.withOpacity(blink * opacity);
-  canvas.drawCircle(Offset.zero, r * 0.16, paint);
-
-  // Warning ring
+  // Warning ring — engraved circle, no blur
   paint.style = PaintingStyle.stroke;
-  paint.strokeWidth = 1.5;
-  paint.color = const Color(0xFFFF4400).withOpacity(0.5 * pulse * opacity);
-  canvas.drawCircle(Offset.zero, r * 0.55, paint);
+  paint.strokeWidth = 1.2;
+  paint.color = const Color(0xFF661100).withOpacity(0.6 * opacity);
+  canvas.drawCircle(Offset.zero, r * 0.54, paint);
   paint.style = PaintingStyle.fill;
+
+  // Core indicator light — small, single glow
+  paint.color = const Color(0xFF200000);
+  canvas.drawCircle(Offset.zero, r * 0.24, paint);
+  paint.maskFilter = const MaskFilter.blur(BlurStyle.normal, 5);
+  paint.color = const Color(0xFFFF0000).withOpacity(0.9 * blink * opacity);
+  canvas.drawCircle(Offset.zero, r * 0.18, paint);
+  paint.maskFilter = null;
+  paint.color = Colors.white.withOpacity(0.95 * blink * opacity);
+  canvas.drawCircle(Offset.zero, r * 0.08, paint);
 
   canvas.restore();
 }
 
 // ── TRACKER MINE ───────────────────────────────────────────────────────────
-// Smooth teardrop hull, rotating sonar ring, scanning blue eye
 void _drawTrackerMine(Canvas canvas, double cx, double cy, double r,
     Color color, double opacity, double pulsePhase, double animTick) {
   final paint = Paint()..style = PaintingStyle.fill;
-  final pulse = sin(pulsePhase) * 0.2 + 0.8;
 
-  // Sonar pulse rings expanding outward
-  for (int ring = 0; ring < 3; ring++) {
-    final phase = (animTick * 1.5 + ring * 0.6) % (2 * pi);
-    final ringRadius = r * 1.2 + (ring * r * 0.5) + sin(phase) * r * 0.4;
-    final ringOpacity = (1.0 - (ring / 3.0)) * 0.25 * opacity;
-    paint.style = PaintingStyle.stroke;
-    paint.strokeWidth = 1.2;
-    paint.color = color.withOpacity(ringOpacity);
-    canvas.drawCircle(Offset(cx, cy), ringRadius, paint);
-    paint.style = PaintingStyle.fill;
-  }
+  // Sonar ring — single crisp stroke, no blur
+  final scanAngle = animTick * 4.0;
+  paint.style = PaintingStyle.stroke;
+  paint.strokeWidth = 1.2;
+  paint.color = color.withOpacity(0.25 * opacity);
+  canvas.drawCircle(Offset(cx, cy), r * 1.55, paint);
+  paint.color = color.withOpacity(0.15 * opacity);
+  canvas.drawCircle(Offset(cx, cy), r * 2.0, paint);
+  paint.style = PaintingStyle.fill;
 
   canvas.save();
   canvas.translate(cx, cy);
 
-  // Outer glow
-  paint.maskFilter = MaskFilter.blur(BlurStyle.normal, 16);
-  paint.color = color.withOpacity(0.35 * pulse * opacity);
-  canvas.drawCircle(Offset.zero, r * 1.5, paint);
-  paint.maskFilter = null;
-
-  // Smooth body — slightly elongated oval
+  // Smooth body — physically lit teardrop
   paint.shader = RadialGradient(
     colors: [
-      const Color(0xFF1A2030),
-      const Color(0xFF0A0E1A),
-      const Color(0xFF020508)
+      const Color(0xFF2A3040),
+      const Color(0xFF141820),
+      const Color(0xFF06080C),
     ],
-    center: const Alignment(-0.2, -0.3),
+    center: const Alignment(-0.28, -0.28),
   ).createShader(Rect.fromCircle(center: Offset.zero, radius: r));
   canvas.drawOval(
-      Rect.fromCenter(center: Offset.zero, width: r * 2, height: r * 2.1),
-      paint);
+    Rect.fromCenter(center: Offset.zero, width: r * 2, height: r * 2.1),
+    paint,
+  );
   paint.shader = null;
 
-  // Sleek body edge
+  // Body edge — dark outline
   paint.style = PaintingStyle.stroke;
-  paint.strokeWidth = 2.0;
-  paint.color = color.withOpacity(0.8 * opacity);
-  paint.maskFilter = MaskFilter.blur(BlurStyle.normal, 3);
+  paint.strokeWidth = 1.5;
+  paint.color = const Color(0xFF080810).withOpacity(opacity);
   canvas.drawOval(
-      Rect.fromCenter(center: Offset.zero, width: r * 2, height: r * 2.1),
-      paint);
-  paint.maskFilter = null;
+    Rect.fromCenter(center: Offset.zero, width: r * 2, height: r * 2.1),
+    paint,
+  );
   paint.style = PaintingStyle.fill;
 
-  // Rotating scanner dish (two arcs)
+  // Specular highlight (physical, no blur)
+  paint.shader = LinearGradient(
+    colors: [Colors.white.withOpacity(0.18), Colors.transparent],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+  ).createShader(Rect.fromCircle(center: Offset.zero, radius: r));
+  canvas.drawOval(
+    Rect.fromCenter(center: Offset(-r * 0.25, -r * 0.25), width: r * 0.8, height: r * 0.6),
+    paint,
+  );
+  paint.shader = null;
+
+  // Scanner sweep — two thin arcs (rotation effect, no blur needed)
   paint.style = PaintingStyle.stroke;
-  paint.strokeWidth = 2.5;
-  final scanAngle = animTick * 4.0;
+  paint.strokeWidth = 2.0;
   for (int arc = 0; arc < 2; arc++) {
     final a = scanAngle + arc * pi;
-    final scanOpacity = (0.3 + cos(a - scanAngle) * 0.4).clamp(0.0, 1.0);
-    paint.color = color.withOpacity(scanOpacity * opacity);
-    canvas.drawArc(Rect.fromCircle(center: Offset.zero, radius: r * 0.72), a,
-        0.6, false, paint);
+    final arcOpacity = (0.2 + cos(a - scanAngle).abs() * 0.5).clamp(0.0, 1.0);
+    paint.color = color.withOpacity(arcOpacity * opacity);
+    canvas.drawArc(
+      Rect.fromCircle(center: Offset.zero, radius: r * 0.70),
+      a, 0.55, false, paint,
+    );
   }
   paint.style = PaintingStyle.fill;
 
-  // Scanning eye — alien blue iris
-  paint.color = const Color(0xFF000010);
-  canvas.drawCircle(Offset.zero, r * 0.4, paint);
+  // Eye socket
+  paint.color = const Color(0xFF00000A);
+  canvas.drawCircle(Offset.zero, r * 0.38, paint);
 
-  // Eye glow layers
-  paint.maskFilter = MaskFilter.blur(BlurStyle.normal, 6);
-  paint.color = color.withOpacity(0.7 * pulse * opacity);
-  canvas.drawCircle(Offset.zero, r * 0.32, paint);
-  paint.maskFilter = null;
-
+  // Iris — radial gradient, single glow
   paint.shader = RadialGradient(
     colors: [Colors.white, color, color.withOpacity(0.0)],
-  ).createShader(Rect.fromCircle(center: Offset.zero, radius: r * 0.3));
-  canvas.drawCircle(Offset.zero, r * 0.3, paint);
+  ).createShader(Rect.fromCircle(center: Offset.zero, radius: r * 0.28));
+  canvas.drawCircle(Offset.zero, r * 0.28, paint);
   paint.shader = null;
 
-  // Eye glint
-  paint.color = Colors.white.withOpacity(0.9 * opacity);
-  canvas.drawCircle(Offset(-r * 0.1, -r * 0.1), r * 0.1, paint);
+  // Pupil glow — ONE small blur
+  paint.maskFilter = const MaskFilter.blur(BlurStyle.normal, 4);
+  paint.color = color.withOpacity(0.75 * opacity);
+  canvas.drawCircle(Offset.zero, r * 0.22, paint);
+  paint.maskFilter = null;
 
-  // Side fins
+  // Glint
+  paint.color = Colors.white.withOpacity(0.85 * opacity);
+  canvas.drawCircle(Offset(-r * 0.09, -r * 0.09), r * 0.09, paint);
+
+  // Side fins — dark, physically simple
   for (int side = -1; side <= 1; side += 2) {
-    paint.color = color.withOpacity(0.4 * opacity);
-    final finPath = Path()
-      ..moveTo(side * r * 0.9, -r * 0.2)
-      ..lineTo(side * r * 1.4, -r * 0.5)
-      ..lineTo(side * r * 1.3, r * 0.2)
-      ..lineTo(side * r * 0.9, r * 0.2)
+    paint.color = const Color(0xFF1A1E28).withOpacity(opacity);
+    final fin = Path()
+      ..moveTo(side * r * 0.88, -r * 0.22)
+      ..lineTo(side * r * 1.38, -r * 0.52)
+      ..lineTo(side * r * 1.28, r * 0.18)
+      ..lineTo(side * r * 0.88, r * 0.22)
       ..close();
-    canvas.drawPath(finPath, paint);
+    canvas.drawPath(fin, paint);
     paint.style = PaintingStyle.stroke;
-    paint.strokeWidth = 1.0;
-    paint.color = color.withOpacity(0.7 * opacity);
-    canvas.drawPath(finPath, paint);
+    paint.strokeWidth = 0.8;
+    paint.color = const Color(0xFF0A0A14).withOpacity(opacity);
+    canvas.drawPath(fin, paint);
     paint.style = PaintingStyle.fill;
   }
 
@@ -239,145 +250,137 @@ void _drawTrackerMine(Canvas canvas, double cx, double cy, double r,
 }
 
 // ── CLUSTER MINE ───────────────────────────────────────────────────────────
-// Segmented body showing 3 child-mine chambers, pulsing red seams
 void _drawClusterMine(Canvas canvas, double cx, double cy, double r,
     Color color, double opacity, double pulsePhase, double animTick) {
   final paint = Paint()..style = PaintingStyle.fill;
-  final pulse = sin(pulsePhase) * 0.25 + 0.75;
-
-  // Danger aura
-  paint.maskFilter = MaskFilter.blur(BlurStyle.normal, 24);
-  paint.color = color.withOpacity(0.30 * pulse * opacity);
-  canvas.drawCircle(Offset(cx, cy), r * 2.0, paint);
-  paint.maskFilter = null;
 
   canvas.save();
   canvas.translate(cx, cy);
   canvas.rotate(animTick * 0.8);
 
-  // Main casing — triangular-ish container
+  // Triangular casing — dark, physically shaded
   final bodyPath = Path();
   for (int i = 0; i < 3; i++) {
     final a = (2 * pi / 3 * i) - pi / 2;
-    final px = cos(a) * r;
-    final py = sin(a) * r;
-    if (i == 0)
-      bodyPath.moveTo(px, py);
-    else
-      bodyPath.lineTo(px, py);
+    if (i == 0) bodyPath.moveTo(cos(a) * r, sin(a) * r);
+    else bodyPath.lineTo(cos(a) * r, sin(a) * r);
   }
   bodyPath.close();
 
   paint.shader = RadialGradient(
     colors: [
-      const Color(0xFF1E0A0A),
-      const Color(0xFF100505),
-      const Color(0xFF050101)
+      const Color(0xFF2E1A1A),
+      const Color(0xFF180A0A),
+      const Color(0xFF060202),
     ],
+    center: const Alignment(-0.3, -0.3),
   ).createShader(Rect.fromCircle(center: Offset.zero, radius: r));
   canvas.drawPath(bodyPath, paint);
   paint.shader = null;
 
-  // Outer casing border
+  // Casing edge
   paint.style = PaintingStyle.stroke;
-  paint.strokeWidth = 3.0;
-  paint.color = color.withOpacity(0.9 * opacity);
+  paint.strokeWidth = 2.5;
+  paint.color = color.withOpacity(0.75 * opacity);
   canvas.drawPath(bodyPath, paint);
   paint.style = PaintingStyle.fill;
 
-  // 3 Child-mine chambers with visible sub-mines inside
+  // Seam lines between chambers
+  paint.style = PaintingStyle.stroke;
+  paint.strokeWidth = 1.5;
+  paint.color = color.withOpacity(0.35 * opacity);
   for (int i = 0; i < 3; i++) {
     final a = (2 * pi / 3 * i) - pi / 2;
-    final chamberX = cos(a) * r * 0.48;
-    final chamberY = sin(a) * r * 0.48;
-    final chamberR = r * 0.32;
+    canvas.drawLine(Offset.zero, Offset(cos(a) * r * 0.92, sin(a) * r * 0.92), paint);
+  }
+  paint.style = PaintingStyle.fill;
 
-    // Chamber well
-    paint.color = const Color(0xFF0A0000);
-    canvas.drawCircle(Offset(chamberX, chamberY), chamberR, paint);
+  // 3 child-mine chambers
+  for (int i = 0; i < 3; i++) {
+    final a = (2 * pi / 3 * i) - pi / 2;
+    final cx2 = cos(a) * r * 0.48;
+    final cy2 = sin(a) * r * 0.48;
+    final cr = r * 0.30;
 
-    // Child mine orb
-    paint.maskFilter = MaskFilter.blur(BlurStyle.normal, 4);
-    paint.color = color.withOpacity(0.6 * pulse * opacity);
-    canvas.drawCircle(Offset(chamberX, chamberY), chamberR * 0.7, paint);
+    // Socket
+    paint.color = const Color(0xFF080202);
+    canvas.drawCircle(Offset(cx2, cy2), cr, paint);
+
+    // Sub-mine — radial gradient, no ambient blur
+    paint.shader = RadialGradient(
+      colors: [color.withOpacity(0.7), color.withOpacity(0.25), Colors.transparent],
+      center: const Alignment(-0.25, -0.25),
+    ).createShader(Rect.fromCircle(center: Offset(cx2, cy2), radius: cr * 0.75));
+    canvas.drawCircle(Offset(cx2, cy2), cr * 0.72, paint);
+    paint.shader = null;
+
+    // Sub-mine indicator — white dot, one small glow
+    paint.maskFilter = const MaskFilter.blur(BlurStyle.normal, 2);
+    paint.color = Colors.white.withOpacity(0.9 * opacity);
+    canvas.drawCircle(Offset(cx2, cy2), cr * 0.22, paint);
     paint.maskFilter = null;
-    paint.color = Colors.white.withOpacity(0.85 * opacity);
-    canvas.drawCircle(Offset(chamberX, chamberY), chamberR * 0.25, paint);
 
-    // Tiny spike on each child
+    // Mini spikes — short stubs, no glow
     for (int s = 0; s < 6; s++) {
       final sa = (pi / 3 * s) + animTick;
-      final tipX = chamberX + cos(sa) * chamberR * 1.0;
-      final tipY = chamberY + sin(sa) * chamberR * 1.0;
-      paint.color = const Color(0xFF888899).withOpacity(opacity * 0.7);
       paint.style = PaintingStyle.stroke;
-      paint.strokeWidth = 1.5;
+      paint.strokeWidth = 1.2;
+      paint.color = const Color(0xFF666678).withOpacity(opacity * 0.8);
       canvas.drawLine(
-          Offset(chamberX + cos(sa) * chamberR * 0.7,
-              chamberY + sin(sa) * chamberR * 0.7),
-          Offset(tipX, tipY),
-          paint);
+        Offset(cx2 + cos(sa) * cr * 0.70, cy2 + sin(sa) * cr * 0.70),
+        Offset(cx2 + cos(sa) * cr * 1.02, cy2 + sin(sa) * cr * 1.02),
+        paint,
+      );
       paint.style = PaintingStyle.fill;
     }
 
     // Chamber ring
     paint.style = PaintingStyle.stroke;
-    paint.strokeWidth = 1.5;
-    paint.color = color.withOpacity(0.6 * opacity);
-    canvas.drawCircle(Offset(chamberX, chamberY), chamberR, paint);
+    paint.strokeWidth = 1.2;
+    paint.color = const Color(0xFF0A0A10).withOpacity(opacity);
+    canvas.drawCircle(Offset(cx2, cy2), cr, paint);
     paint.style = PaintingStyle.fill;
   }
 
-  // Pulsing seam lines dividing the 3 chambers
-  paint.style = PaintingStyle.stroke;
-  paint.strokeWidth = 1.8;
-  final seamPulse = 0.4 + sin(pulsePhase * 4) * 0.4;
-  paint.color = color.withOpacity(seamPulse * opacity);
-  paint.maskFilter = MaskFilter.blur(BlurStyle.normal, 2);
-  for (int i = 0; i < 3; i++) {
-    final a = (2 * pi / 3 * i) - pi / 2;
-    canvas.drawLine(
-        Offset.zero, Offset(cos(a) * r * 0.95, sin(a) * r * 0.95), paint);
-  }
-  paint.maskFilter = null;
-  paint.style = PaintingStyle.fill;
-
-  // Center detonator
-  paint.color = const Color(0xFF050000);
-  canvas.drawCircle(Offset.zero, r * 0.18, paint);
-  paint.maskFilter = MaskFilter.blur(BlurStyle.normal, 5);
-  paint.color = const Color(0xFFFF0000).withOpacity(pulse * opacity);
-  canvas.drawCircle(Offset.zero, r * 0.14, paint);
+  // Centre detonator
+  paint.color = const Color(0xFF0A0202);
+  canvas.drawCircle(Offset.zero, r * 0.17, paint);
+  paint.maskFilter = const MaskFilter.blur(BlurStyle.normal, 4);
+  paint.color = const Color(0xFFCC0000).withOpacity(0.9 * opacity);
+  canvas.drawCircle(Offset.zero, r * 0.12, paint);
   paint.maskFilter = null;
   paint.color = Colors.white.withOpacity(opacity);
-  canvas.drawCircle(Offset.zero, r * 0.07, paint);
+  canvas.drawCircle(Offset.zero, r * 0.06, paint);
 
   canvas.restore();
 
-  // "CLUSTER" tag below
+  // "CLUSTER" label
   final tp = TextPainter(
     text: TextSpan(
       text: 'CLUSTER',
       style: TextStyle(
-          color: color.withOpacity(0.7 * opacity),
-          fontSize: 7,
-          fontWeight: FontWeight.w900,
-          letterSpacing: 1.5),
+        color: color.withOpacity(0.6 * opacity),
+        fontSize: 7,
+        fontWeight: FontWeight.w900,
+        letterSpacing: 1.5,
+      ),
     ),
     textDirection: TextDirection.ltr,
   );
   tp.layout();
-  tp.paint(canvas, Offset(cx - tp.width / 2, cy + r * 1.7));
+  tp.paint(canvas, Offset(cx - tp.width / 2, cy + r * 1.68));
 }
 
 // ── DEATH EXPLOSION ────────────────────────────────────────────────────────
 void _drawMineExplosion(
     Canvas canvas, double cx, double cy, double r, double t, Color color) {
   final paint = Paint()..style = PaintingStyle.fill;
-  paint.maskFilter = MaskFilter.blur(BlurStyle.normal, 20 * (1 - t));
-  paint.color = color.withOpacity((1.0 - t) * 0.9);
-  canvas.drawCircle(Offset(cx, cy), r * (1 + t * 3), paint);
+  // One radial burst — tight blur on the expanding ring
+  paint.maskFilter = MaskFilter.blur(BlurStyle.normal, 18 * (1 - t));
+  paint.color = color.withOpacity((1.0 - t) * 0.85);
+  canvas.drawCircle(Offset(cx, cy), r * (1 + t * 2.8), paint);
   paint.maskFilter = null;
-  paint.color = Colors.white.withOpacity((1.0 - t) * 0.6);
-  canvas.drawCircle(Offset(cx, cy), r * (1 + t * 1.5), paint);
+  // Bright flash core
+  paint.color = Colors.white.withOpacity((1.0 - t) * 0.55);
+  canvas.drawCircle(Offset(cx, cy), r * (1 + t * 1.4), paint);
 }

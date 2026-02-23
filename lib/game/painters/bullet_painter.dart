@@ -1,7 +1,13 @@
 import 'package:flutter/material.dart';
 import '../../models/game_models.dart';
 
-/// Draws each bullet with the shape tied to its originating ship.
+// ─────────────────────────────────────────────────────────────────────────────
+// BULLET PAINTER — Physically grounded projectiles
+// Rule: each bullet has ONE justified glow (the hot tip / plasma core).
+// Everything else is matte metal / translucent energy shaft with NO blur.
+// Trails are painted with a simple gradient, not a blur stack.
+// ─────────────────────────────────────────────────────────────────────────────
+
 void drawBullets(Canvas canvas, Size size, List<Bullet> bullets) {
   final paint = Paint()..style = PaintingStyle.fill;
   for (final b in bullets) {
@@ -30,201 +36,188 @@ void drawBullets(Canvas canvas, Size size, List<Bullet> bullets) {
 }
 
 // ── PHANTOM: Precision needle ─────────────────────────────────────────────
-// Slim cyan lance — very fast, bright white tip
-void _drawNeedle(
-    Canvas canvas, double cx, double cy, Color color, Paint paint) {
-  // Outer glow
-  paint.maskFilter = const MaskFilter.blur(BlurStyle.normal, 5);
-  paint.color = color.withOpacity(0.45);
-  canvas.drawOval(
-      Rect.fromCenter(center: Offset(cx, cy), width: 5, height: 20), paint);
-  paint.maskFilter = null;
-  // Core shaft
-  paint.color = color;
-  canvas.drawOval(
-      Rect.fromCenter(center: Offset(cx, cy), width: 2.5, height: 14), paint);
-  // Hot tip
-  paint.color = Colors.white;
-  canvas.drawOval(
-      Rect.fromCenter(center: Offset(cx, cy - 5), width: 2.5, height: 6),
-      paint);
-  // Tip bright point
-  paint.maskFilter = const MaskFilter.blur(BlurStyle.normal, 3);
-  paint.color = Colors.white;
-  canvas.drawCircle(Offset(cx, cy - 8), 2.5, paint);
-  paint.maskFilter = null;
-}
-
-// ── NOVA: Plasma blob ─────────────────────────────────────────────────────
-// Wide glowing energy sphere that tapers into a comet tail
-void _drawPlasma(
-    Canvas canvas, double cx, double cy, Color color, Paint paint) {
-  // Soft outer glow
-  paint.maskFilter = const MaskFilter.blur(BlurStyle.normal, 8);
-  paint.color = color.withOpacity(0.4);
-  canvas.drawCircle(Offset(cx, cy), 8, paint);
-  paint.maskFilter = null;
-  // Comet tail
+// Slim tungsten dart. Trail = gradient oval. Tip = one small glow.
+void _drawNeedle(Canvas canvas, double cx, double cy, Color color, Paint paint) {
+  // Motion trail — gradient, no blur
   paint.shader = LinearGradient(
-    colors: [color.withOpacity(0.0), color.withOpacity(0.6)],
+    colors: [Colors.transparent, color.withOpacity(0.35)],
     begin: Alignment.bottomCenter,
     end: Alignment.topCenter,
-  ).createShader(
-      Rect.fromCenter(center: Offset(cx, cy + 6), width: 8, height: 14));
+  ).createShader(Rect.fromCenter(center: Offset(cx, cy + 6), width: 3, height: 16));
   canvas.drawOval(
-      Rect.fromCenter(center: Offset(cx, cy + 5), width: 8, height: 12), paint);
-  paint.shader = null;
-  // Core orb
-  paint.shader = RadialGradient(
-    colors: [Colors.white, color, color.withOpacity(0.5)],
-  ).createShader(Rect.fromCircle(center: Offset(cx, cy), radius: 6));
-  canvas.drawCircle(Offset(cx, cy), 6, paint);
-  paint.shader = null;
-  // Center sparkle
-  paint.color = Colors.white;
-  canvas.drawCircle(Offset(cx, cy - 1), 2.5, paint);
-}
-
-// ── INFERNO: Heavy shell ──────────────────────────────────────────────────
-// Thick orange artillery round with metallic casing and fire wake
-void _drawShell(Canvas canvas, double cx, double cy, Color color, Paint paint) {
-  // Fire wake
-  paint.maskFilter = const MaskFilter.blur(BlurStyle.normal, 6);
-  paint.color = const Color(0xFFFF4400).withOpacity(0.5);
-  canvas.drawOval(
-      Rect.fromCenter(center: Offset(cx, cy + 8), width: 10, height: 16),
-      paint);
-  paint.maskFilter = null;
-  // Shell body — dark metallic
-  paint.shader = LinearGradient(
-    colors: [
-      const Color(0xFFCCCCDD),
-      const Color(0xFF555566),
-      const Color(0xFF222233)
-    ],
-    begin: Alignment.topLeft,
-    end: Alignment.bottomRight,
-  ).createShader(Rect.fromCenter(center: Offset(cx, cy), width: 8, height: 16));
-  canvas.drawRRect(
-    RRect.fromRectAndRadius(
-        Rect.fromCenter(center: Offset(cx, cy + 2), width: 7, height: 13),
-        const Radius.circular(3)),
+    Rect.fromCenter(center: Offset(cx, cy + 5), width: 3, height: 14),
     paint,
   );
   paint.shader = null;
-  // Tip — copper/bronze warhead
+
+  // Shaft — crisp, no blur
+  paint.color = color;
+  canvas.drawOval(
+    Rect.fromCenter(center: Offset(cx, cy), width: 2.2, height: 12),
+    paint,
+  );
+
+  // Hot tip — single tight glow (one blur is justified here)
+  paint.maskFilter = const MaskFilter.blur(BlurStyle.normal, 2.5);
+  paint.color = Colors.white.withOpacity(0.9);
+  canvas.drawCircle(Offset(cx, cy - 6), 2.2, paint);
+  paint.maskFilter = null;
+  paint.color = Colors.white;
+  canvas.drawCircle(Offset(cx, cy - 6), 1.2, paint);
+}
+
+// ── NOVA: Plasma bolt ─────────────────────────────────────────────────────
+// Energy sphere with comet tail. Core = one glow. Tail = gradient only.
+void _drawPlasma(Canvas canvas, double cx, double cy, Color color, Paint paint) {
+  // Comet tail — gradient, no blur
   paint.shader = LinearGradient(
-    colors: [color, const Color(0xFFCC4400)],
+    colors: [Colors.transparent, color.withOpacity(0.5)],
+    begin: Alignment.bottomCenter,
+    end: Alignment.topCenter,
+  ).createShader(
+      Rect.fromCenter(center: Offset(cx, cy + 5), width: 7, height: 13));
+  canvas.drawOval(
+    Rect.fromCenter(center: Offset(cx, cy + 5), width: 7, height: 12),
+    paint,
+  );
+  paint.shader = null;
+
+  // Orb body — radial gradient, no blur
+  paint.shader = RadialGradient(
+    colors: [Colors.white, color, color.withOpacity(0.6)],
+  ).createShader(Rect.fromCircle(center: Offset(cx, cy), radius: 5.5));
+  canvas.drawCircle(Offset(cx, cy), 5.5, paint);
+  paint.shader = null;
+
+  // Hot centre — one tight glow
+  paint.maskFilter = const MaskFilter.blur(BlurStyle.normal, 3);
+  paint.color = Colors.white.withOpacity(0.8);
+  canvas.drawCircle(Offset(cx, cy - 1), 2, paint);
+  paint.maskFilter = null;
+}
+
+// ── INFERNO: Artillery shell ──────────────────────────────────────────────
+// Metallic casing, no fire-wake blur — just a gradient tail.
+void _drawShell(Canvas canvas, double cx, double cy, Color color, Paint paint) {
+  // Propellant tail — gradient oval, no blur
+  paint.shader = LinearGradient(
+    colors: [Colors.transparent, color.withOpacity(0.45)],
+    begin: Alignment.bottomCenter,
+    end: Alignment.topCenter,
+  ).createShader(Rect.fromCenter(center: Offset(cx, cy + 8), width: 6, height: 14));
+  canvas.drawOval(
+    Rect.fromCenter(center: Offset(cx, cy + 7), width: 6, height: 13),
+    paint,
+  );
+  paint.shader = null;
+
+  // Shell body — metallic gradient, sharp
+  paint.shader = const LinearGradient(
+    colors: [Color(0xFFCCCCCC), Color(0xFF666666), Color(0xFF222222)],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+  ).createShader(Rect.fromCenter(center: Offset(cx, cy + 1), width: 7, height: 14));
+  canvas.drawRRect(
+    RRect.fromRectAndRadius(
+      Rect.fromCenter(center: Offset(cx, cy + 1), width: 6.5, height: 12),
+      const Radius.circular(2),
+    ),
+    paint,
+  );
+  paint.shader = null;
+
+  // Copper warhead tip — just a gradient, no blur
+  paint.shader = LinearGradient(
+    colors: [color, const Color(0xFFAA3300)],
     begin: Alignment.topCenter,
     end: Alignment.bottomCenter,
-  ).createShader(
-      Rect.fromCenter(center: Offset(cx, cy - 6), width: 7, height: 8));
+  ).createShader(Rect.fromCenter(center: Offset(cx, cy - 5.5), width: 6.5, height: 9));
   canvas.drawOval(
-      Rect.fromCenter(center: Offset(cx, cy - 5), width: 7, height: 10), paint);
+    Rect.fromCenter(center: Offset(cx, cy - 5), width: 6.5, height: 9),
+    paint,
+  );
   paint.shader = null;
-  // Tip gleam
+
+  // Specular gleam on tip — no blur needed, just bright dot
   paint.color = Colors.white.withOpacity(0.6);
-  canvas.drawCircle(Offset(cx - 1.5, cy - 8), 1.5, paint);
-  // Propellant ring
-  paint.color = const Color(0xFF888899);
+  canvas.drawCircle(Offset(cx - 1.5, cy - 7.5), 1.3, paint);
+
+  // Base band
+  paint.color = const Color(0xFF888888);
   paint.style = PaintingStyle.stroke;
   paint.strokeWidth = 1.5;
-  canvas.drawLine(Offset(cx - 3.5, cy + 5), Offset(cx + 3.5, cy + 5), paint);
+  canvas.drawLine(Offset(cx - 3, cy + 6), Offset(cx + 3, cy + 6), paint);
   paint.style = PaintingStyle.fill;
 }
 
 // ── SPECTER: Ghost beam ───────────────────────────────────────────────────
-// Semi-transparent flickering column with ethereal wisps on the sides
+// Translucent shaft, no stacked blurs. Semi-transparent is enough.
 void _drawBeam(Canvas canvas, double cx, double cy, Color color, Paint paint) {
-  // Outer spectral aura
-  paint.maskFilter = const MaskFilter.blur(BlurStyle.normal, 10);
-  paint.color = color.withOpacity(0.30);
-  canvas.drawOval(
-      Rect.fromCenter(center: Offset(cx, cy), width: 14, height: 28), paint);
-  paint.maskFilter = null;
-
-  // Transparent beam shaft
+  // Outer shaft — translucent gradient, NO blur
   paint.shader = LinearGradient(
     colors: [
-      color.withOpacity(0.0),
-      color.withOpacity(0.55),
-      color.withOpacity(0.0)
+      Colors.transparent,
+      color.withOpacity(0.45),
+      Colors.transparent,
     ],
+    stops: const [0.0, 0.5, 1.0],
     begin: Alignment.bottomCenter,
     end: Alignment.topCenter,
-  ).createShader(Rect.fromCenter(center: Offset(cx, cy), width: 6, height: 26));
+  ).createShader(Rect.fromCenter(center: Offset(cx, cy), width: 6, height: 24));
   canvas.drawOval(
-      Rect.fromCenter(center: Offset(cx, cy), width: 6, height: 26), paint);
+    Rect.fromCenter(center: Offset(cx, cy), width: 6, height: 24),
+    paint,
+  );
   paint.shader = null;
 
-  // Inner bright core (semi-translucent)
-  paint.color = Colors.white.withOpacity(0.50);
+  // Inner bright core — no blur, just semi-transparent white
+  paint.color = Colors.white.withOpacity(0.42);
   canvas.drawOval(
-      Rect.fromCenter(center: Offset(cx, cy), width: 3, height: 18), paint);
+    Rect.fromCenter(center: Offset(cx, cy), width: 2.5, height: 16),
+    paint,
+  );
 
-  // Side wisps (2 small orbs floating alongside)
-  for (final offset in [-7.0, 7.0]) {
-    paint.maskFilter = const MaskFilter.blur(BlurStyle.normal, 4);
-    paint.color = color.withOpacity(0.35);
-    canvas.drawCircle(Offset(cx + offset, cy + 4), 3, paint);
-    paint.maskFilter = null;
-  }
-
-  // Top dissolve
-  paint.maskFilter = const MaskFilter.blur(BlurStyle.normal, 4);
-  paint.color = Colors.white.withOpacity(0.4);
-  canvas.drawCircle(Offset(cx, cy - 12), 3, paint);
+  // Leading tip — one glow
+  paint.maskFilter = const MaskFilter.blur(BlurStyle.normal, 3);
+  paint.color = color.withOpacity(0.7);
+  canvas.drawCircle(Offset(cx, cy - 11), 2.5, paint);
   paint.maskFilter = null;
 }
 
-// ── TITAN: Heavy cannon ball ──────────────────────────────────────────────
-// Big metal sphere with a glowing energy core and trailing shockwave ring
-void _drawCannon(
-    Canvas canvas, double cx, double cy, Color color, Paint paint) {
-  // Distant wake glow
-  paint.maskFilter = const MaskFilter.blur(BlurStyle.normal, 10);
-  paint.color = color.withOpacity(0.35);
+// ── TITAN: Cannon ball ────────────────────────────────────────────────────
+// Dense metal sphere. Physical shading. One glow: the energy core ring.
+void _drawCannon(Canvas canvas, double cx, double cy, Color color, Paint paint) {
+  // Wake — gradient oval, no blur
+  paint.shader = LinearGradient(
+    colors: [Colors.transparent, color.withOpacity(0.30)],
+    begin: Alignment.bottomCenter,
+    end: Alignment.topCenter,
+  ).createShader(
+      Rect.fromCenter(center: Offset(cx, cy + 7), width: 10, height: 12));
   canvas.drawOval(
-      Rect.fromCenter(center: Offset(cx, cy + 6), width: 16, height: 14),
-      paint);
-  paint.maskFilter = null;
+    Rect.fromCenter(center: Offset(cx, cy + 7), width: 10, height: 11),
+    paint,
+  );
+  paint.shader = null;
 
-  // Metallic sphere body
-  paint.shader = RadialGradient(
-    colors: [
-      const Color(0xFF888899),
-      const Color(0xFF333344),
-      const Color(0xFF0A0A14)
-    ],
-    center: const Alignment(-0.3, -0.3),
+  // Metallic sphere — radial gradient gives 3D feel without any blur
+  paint.shader = const RadialGradient(
+    colors: [Color(0xFF9A9AAC), Color(0xFF404050), Color(0xFF0C0C14)],
+    center: Alignment(-0.35, -0.35),
   ).createShader(Rect.fromCircle(center: Offset(cx, cy), radius: 7));
   canvas.drawCircle(Offset(cx, cy), 7, paint);
   paint.shader = null;
 
-  // Glowing energy core ring
+  // Specular highlight — crisp, no blur
+  paint.color = Colors.white.withOpacity(0.5);
+  canvas.drawCircle(Offset(cx - 2.5, cy - 2.5), 2.2, paint);
+
+  // Energy core ring — this IS glowing, one tight blur
   paint.style = PaintingStyle.stroke;
-  paint.strokeWidth = 2.0;
-  paint.maskFilter = const MaskFilter.blur(BlurStyle.normal, 4);
-  paint.color = color.withOpacity(0.85);
-  canvas.drawCircle(Offset(cx, cy), 5, paint);
-  paint.maskFilter = null;
-  paint.style = PaintingStyle.fill;
-
-  // Trailing shockwave ring (flat ellipse behind)
-  paint.style = PaintingStyle.stroke;
-  paint.strokeWidth = 1.5;
-  paint.color = color.withOpacity(0.40);
-  canvas.drawOval(
-      Rect.fromCenter(center: Offset(cx, cy + 9), width: 14, height: 4), paint);
-  paint.style = PaintingStyle.fill;
-
-  // Specular highlight
-  paint.color = Colors.white.withOpacity(0.55);
-  canvas.drawCircle(Offset(cx - 2.5, cy - 2.5), 2.5, paint);
-
-  // Inner glow dot
+  paint.strokeWidth = 1.8;
   paint.maskFilter = const MaskFilter.blur(BlurStyle.normal, 3);
-  paint.color = color.withOpacity(0.9);
-  canvas.drawCircle(Offset(cx, cy), 3, paint);
+  paint.color = color.withOpacity(0.85);
+  canvas.drawCircle(Offset(cx, cy), 4.5, paint);
   paint.maskFilter = null;
+  paint.style = PaintingStyle.fill;
 }

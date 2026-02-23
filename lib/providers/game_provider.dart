@@ -292,7 +292,7 @@ class GameProvider extends ChangeNotifier {
     activeBomb = Bomb(x: player.x, y: player.y);
     freezeFrameTimer =
         _freezeDuration; // ← THE key juice trick: ~4 frame freeze
-    shakeIntensity = 32.0;
+    shakeIntensity = 10.0;
     tensionLevel = 0.0; // bomb RESETS tension — this IS the release moment
 
     shockwaves.add(Shockwave(
@@ -315,14 +315,14 @@ class GameProvider extends ChangeNotifier {
         color: const Color(0xFFFF6B00)));
 
     // Small burst up front — rest come during kill drain
-    for (int i = 0; i < 22; i++) {
+    for (int i = 0; i < 12; i++) {
       final angle = _rng.nextDouble() * 2 * pi;
-      final speed = 0.014 + _rng.nextDouble() * 0.032;
-      final cols = [
+      final speed = 0.014 + _rng.nextDouble() * 0.028;
+      const cols = [
         Colors.white,
         Colors.white,
-        const Color(0xFFFF6B2B),
-        const Color(0xFFFFD60A)
+        Color(0xFFFF6B2B),
+        Color(0xFFFFD60A),
       ];
       particles.add({
         'x': player.x,
@@ -331,8 +331,11 @@ class GameProvider extends ChangeNotifier {
         'vy': sin(angle) * speed,
         'life': 1.0,
         'color': cols[_rng.nextInt(cols.length)],
-        'size': 7.0 + _rng.nextDouble() * 16,
-        'decay': 0.013
+        'size': 7.0 + _rng.nextDouble() * 14,
+        'decay': 0.014,
+        'shape': 'ember',
+        'angle': angle,
+        'spin': 0.0,
       });
     }
 
@@ -348,7 +351,7 @@ class GameProvider extends ChangeNotifier {
     final killCount = _bombKillQueue.length;
     state.score += (200 + killCount * 30).toInt();
     onRewardCollected?.call('💥 BOMB  ×$killCount KILLS');
-    notifyListeners();
+    // NO notifyListeners here — tick fires one within 16ms
   }
 
   // ── MAIN TICK ──────────────────────────────────────────────────────────────
@@ -358,9 +361,9 @@ class GameProvider extends ChangeNotifier {
     // ── FREEZE FRAME ── stall game logic for a few frames after bomb
     if (freezeFrameTimer > 0) {
       freezeFrameTimer -= _tickRate;
-      _animTick += _tickRate; // keep animations running so flash renders
-      notifyListeners();
-      return; // skip everything else — the white flash does the work
+      _animTick += _tickRate;
+      notifyListeners(); // needed: screen reads activeBomb state for the flash
+      return;
     }
 
     _gameTime += _tickRate;
@@ -420,7 +423,7 @@ class GameProvider extends ChangeNotifier {
       );
       bossSpawned = true;
       onRewardCollected?.call('⚠  IMPERIAL HUNTER DETECTED');
-      shakeIntensity = 20.0;
+      shakeIntensity = 9.0;
     }
 
     // ── BOSS TICK ──────────────────────────────────────────────────────────
@@ -442,16 +445,17 @@ class GameProvider extends ChangeNotifier {
         if (boss!.hp <= 0) {
           boss!.isDead = true;
           bossDefeated = true;
-          shakeIntensity = 35.0;
+          shakeIntensity = 12.0; // capped — 35 caused the flicker
           rampage.chargeLevel = 1.0;
-          for (int i = 0; i < 40; i++) {
+          // Reduced to 16 particles — enough visual impact, no lag spike
+          for (int i = 0; i < 16; i++) {
             final a = _rng.nextDouble() * 2 * pi;
-            final spd = 0.008 + _rng.nextDouble() * 0.025;
-            final cols = [
+            final spd = 0.008 + _rng.nextDouble() * 0.022;
+            const cols = [
               Colors.white,
-              const Color(0xFFFF2D55),
-              const Color(0xFFFF6B00),
-              const Color(0xFFFFD60A)
+              Color(0xFFFF2D55),
+              Color(0xFFFF6B00),
+              Color(0xFFFFD60A),
             ];
             particles.add({
               'x': boss!.x,
@@ -460,17 +464,26 @@ class GameProvider extends ChangeNotifier {
               'vy': sin(a) * spd,
               'life': 1.0,
               'color': cols[_rng.nextInt(cols.length)],
-              'size': 8.0 + _rng.nextDouble() * 18,
-              'decay': 0.012
+              'size': 8.0 + _rng.nextDouble() * 16,
+              'decay': 0.014,
+              'shape': 'ember',
+              'angle': a,
+              'spin': 0.0,
             });
           }
-          for (int i = 0; i < 5; i++)
-            shockwaves.add(Shockwave(
-                x: boss!.x + (_rng.nextDouble() - 0.5) * 0.1,
-                y: boss!.y,
-                radius: 0.01 + i * 0.008,
-                life: 1.0,
-                color: i.isEven ? Colors.white : const Color(0xFFFF2D55)));
+          // 2 shockwaves only — 5 was overkill
+          shockwaves.add(Shockwave(
+              x: boss!.x,
+              y: boss!.y,
+              radius: 0.01,
+              life: 1.0,
+              color: Colors.white));
+          shockwaves.add(Shockwave(
+              x: boss!.x,
+              y: boss!.y,
+              radius: 0.02,
+              life: 1.0,
+              color: const Color(0xFFFF2D55)));
           state.score += 5000;
           onRewardCollected?.call('★  HUNTER DESTROYED  +5000');
         }
@@ -527,7 +540,7 @@ class GameProvider extends ChangeNotifier {
       gauntletActive = true;
       gauntletTimer = 0;
       onRewardCollected?.call('⚡  FINAL GAUNTLET — SURVIVE 30s');
-      shakeIntensity = 25.0;
+      shakeIntensity = 10.0;
     }
     if (gauntletActive && !escaped) {
       gauntletTimer += _tickRate;
@@ -536,15 +549,11 @@ class GameProvider extends ChangeNotifier {
         escapeFlashTimer = 1.0;
         state.score += 10000;
         onRewardCollected?.call('★★★  ESCAPED  +10000  ★★★');
-        shakeIntensity = 40.0;
-        for (int i = 0; i < 50; i++) {
+        shakeIntensity = 12.0;
+        for (int i = 0; i < 18; i++) {
           final a = _rng.nextDouble() * 2 * pi;
-          final spd = 0.01 + _rng.nextDouble() * 0.03;
-          final cols = [
-            Colors.white,
-            const Color(0xFF00FFD1),
-            const Color(0xFFFFD60A)
-          ];
+          final spd = 0.01 + _rng.nextDouble() * 0.028;
+          const cols = [Colors.white, Color(0xFF00FFD1), Color(0xFFFFD60A)];
           particles.add({
             'x': player.x,
             'y': player.y,
@@ -552,8 +561,11 @@ class GameProvider extends ChangeNotifier {
             'vy': sin(a) * spd - 0.01,
             'life': 1.0,
             'color': cols[_rng.nextInt(cols.length)],
-            'size': 6.0 + _rng.nextDouble() * 14,
-            'decay': 0.01
+            'size': 6.0 + _rng.nextDouble() * 12,
+            'decay': 0.012,
+            'shape': 'ember',
+            'angle': a,
+            'spin': 0.0,
           });
         }
         Future.delayed(const Duration(milliseconds: 2800), () => stopGame());
@@ -855,12 +867,12 @@ class GameProvider extends ChangeNotifier {
       }
     }
 
-    // Screen shake
+    // Screen shake — clamp max so it never causes flicker, decay fast
     if (shakeIntensity > 0) {
-      shakeIntensity *= 0.80;
+      shakeIntensity = (shakeIntensity * 0.72).clamp(0.0, 12.0);
       shakeOffset = Offset((_rng.nextDouble() - 0.5) * shakeIntensity,
           (_rng.nextDouble() - 0.5) * shakeIntensity);
-      if (shakeIntensity < 0.3) {
+      if (shakeIntensity < 0.4) {
         shakeIntensity = 0;
         shakeOffset = Offset.zero;
       }
@@ -891,7 +903,7 @@ class GameProvider extends ChangeNotifier {
 
   void activateRampage() {
     rampageActivate();
-    notifyListeners();
+    // tick will notify within 16ms — no extra rebuild needed
   }
 
   @override

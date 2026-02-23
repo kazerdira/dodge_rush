@@ -1,9 +1,9 @@
 part of '../game_provider.dart';
 
 // ── BOSS SYSTEM ──────────────────────────────────────────────────────────────
-// Boss firing patterns, rampage activation, and boss-related visual effects.
 
 extension BossSystem on GameProvider {
+  // ── BOSS FIRE ─────────────────────────────────────────────────────────────
   void bossFire() {
     if (boss == null || boss!.isDead) return;
     final bx = boss!.x;
@@ -14,6 +14,7 @@ extension BossSystem on GameProvider {
     if (dist < 0.01) return;
     final bvx = (dx / dist) * 0.013;
     final bvy = (dy / dist) * 0.013;
+
     bossMissiles.add(BossMissile(x: bx, y: by, vx: bvx, vy: bvy));
     bossMissiles.add(BossMissile(
         x: bx - 0.06,
@@ -28,21 +29,50 @@ extension BossSystem on GameProvider {
         vy: bvy + 0.002,
         color: const Color(0xFFFF6B00)));
     shakeIntensity = max(shakeIntensity, 5.0);
-    for (int i = 0; i < 8; i++) {
-      final a = _rng.nextDouble() * 2 * pi;
+
+    // Muzzle flash sparks — directional, not generic dots
+    final muzzleAngle = atan2(bvy, bvx);
+    for (int i = 0; i < 6; i++) {
+      final a = muzzleAngle + (_rng.nextDouble() - 0.5) * 0.7;
       particles.add({
         'x': bx,
         'y': by,
-        'vx': cos(a) * 0.008,
-        'vy': sin(a) * 0.008,
-        'life': 0.5,
-        'color': const Color(0xFFFF2D55),
-        'size': 3.0 + _rng.nextDouble() * 5,
-        'decay': 0.06
+        'vx': cos(a) * (0.006 + _rng.nextDouble() * 0.009),
+        'vy': sin(a) * (0.006 + _rng.nextDouble() * 0.009),
+        'life': 0.45,
+        'color': const Color(0xFFFF6B00),
+        'size': 2.5 + _rng.nextDouble() * 3.5,
+        'decay': 0.07,
+        'shape': 'spark',
+        'angle': a,
+        'spin': 0.0,
       });
     }
   }
 
+  // ── BOSS ARRIVAL — cinematic entrance burst ───────────────────────────────
+  // Called once when the boss is first spawned.
+  // Three staggered shockwave rings + fire embers + dark hull shards.
+  void bossArrivalEffect() {
+    final bx = boss!.x;
+    final by = boss!.y;
+
+    // Staggered shockwave rings
+    for (int i = 0; i < 3; i++) {
+      shockwaves.add(Shockwave(
+        x: bx + (_rng.nextDouble() - 0.5) * 0.06,
+        y: by,
+        radius: 0.01 + i * 0.009,
+        life: 1.0,
+        color: i == 0 ? Colors.white : const Color(0xFFFF2D55),
+      ));
+    }
+
+    spawnBossArrivalParticles(bx, by);
+    shakeIntensity = 28.0;
+  }
+
+  // ── RAMPAGE ACTIVATE ──────────────────────────────────────────────────────
   void rampageActivate() {
     if (!isRampageReady) return;
     rampage.isActive = true;
@@ -50,6 +80,7 @@ extension BossSystem on GameProvider {
     rampage.chargeLevel = 0;
     shakeIntensity = 20.0;
     onRewardCollected?.call('🔥 RAMPAGE — 10s INVINCIBLE');
+
     for (int i = 0; i < 30; i++) {
       final a = _rng.nextDouble() * 2 * pi;
       final spd = 0.01 + _rng.nextDouble() * 0.025;
@@ -60,16 +91,20 @@ extension BossSystem on GameProvider {
         'vy': sin(a) * spd,
         'life': 1.0,
         'color': const Color(0xFFFF6B00),
-        'size': 5.0 + _rng.nextDouble() * 12,
-        'decay': 0.02
+        'size': 5.0 + _rng.nextDouble() * 12.0,
+        'decay': 0.02,
+        'shape': 'ember',
+        'angle': a,
+        'spin': 0.0,
       });
     }
-    for (int i = 0; i < 3; i++)
+    for (int i = 0; i < 3; i++) {
       shockwaves.add(Shockwave(
           x: player.x,
           y: player.y,
           radius: 0.01 + i * 0.01,
           life: 1.0,
           color: i == 0 ? Colors.white : const Color(0xFFFF6B00)));
+    }
   }
 }

@@ -165,46 +165,8 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
               onTap: _triggerBomb),
         ),
 
-        // Rampage button — appears when charge >= 1 (sector 3+)
-        ListenableBuilder(
-          listenable: _game,
-          builder: (context, _) {
-            if (!_game.isRampageReady) return const SizedBox.shrink();
-            return Positioned(
-              left: 20,
-              bottom: 100 + MediaQuery.of(context).padding.bottom,
-              child: GestureDetector(
-                onTap: _game.activateRampage,
-                child: TweenAnimationBuilder<double>(
-                  tween: Tween(begin: 0.9, end: 1.08),
-                  duration: const Duration(milliseconds: 500),
-                  curve: Curves.easeInOut,
-                  builder: (context, scale, child) =>
-                      Transform.scale(scale: scale, child: child),
-                  child: Container(
-                    width: 72,
-                    height: 72,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: const Color(0xFF1A0800),
-                      border: Border.all(
-                          color: const Color(0xFFFF6B00), width: 2.5),
-                      boxShadow: [
-                        BoxShadow(
-                            color: const Color(0xFFFF6B00).withOpacity(0.6),
-                            blurRadius: 18,
-                            spreadRadius: 2)
-                      ],
-                    ),
-                    child: const Center(
-                      child: Text('🔥', style: TextStyle(fontSize: 30)),
-                    ),
-                  ),
-                ),
-              ),
-            );
-          },
-        ),
+        // Rampage button — isolated widget with its own listener
+        _RampageButton(game: _game),
 
         // Weapon indicator
         if (_game.state.weaponTimer > 0)
@@ -444,30 +406,15 @@ class _BombButton extends StatefulWidget {
   State<_BombButton> createState() => _BombButtonState();
 }
 
-class _BombButtonState extends State<_BombButton>
-    with SingleTickerProviderStateMixin {
+class _BombButtonState extends State<_BombButton> {
   bool _pressed = false;
-  late AnimationController _pulse;
-
-  @override
-  void initState() {
-    super.initState();
-    _pulse = AnimationController(
-        vsync: this, duration: const Duration(milliseconds: 900))
-      ..repeat(reverse: true);
-  }
-
-  @override
-  void dispose() {
-    _pulse.dispose();
-    super.dispose();
-  }
 
   @override
   Widget build(BuildContext context) {
     final hasBombs = widget.bombCount > 0;
     final bombColor =
         hasBombs ? const Color(0xFFFF6B2B) : const Color(0xFF444444);
+    final scale = _pressed ? 0.88 : 1.0;
 
     return GestureDetector(
       onTapDown: (_) {
@@ -478,74 +425,69 @@ class _BombButtonState extends State<_BombButton>
         if (hasBombs) widget.onTap();
       },
       onTapCancel: () => setState(() => _pressed = false),
-      child: AnimatedBuilder(
-        animation: _pulse,
-        builder: (_, __) {
-          final scale =
-              _pressed ? 0.88 : (hasBombs ? 1.0 + _pulse.value * 0.06 : 1.0);
-          return Transform.scale(
-            scale: scale,
-            child: Stack(clipBehavior: Clip.none, children: [
-              Container(
-                width: 76,
-                height: 76,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: _pressed
-                      ? bombColor.withOpacity(0.4)
-                      : AppTheme.card.withOpacity(0.9),
-                  border: Border.all(
-                      color: bombColor.withOpacity(_pressed
-                          ? 1.0
-                          : hasBombs
-                              ? 0.5 + _pulse.value * 0.3
-                              : 0.3),
-                      width: _pressed ? 3.0 : 2.0),
-                  boxShadow: hasBombs
-                      ? [
-                          BoxShadow(
-                              color: bombColor.withOpacity(
-                                  _pressed ? 0.7 : 0.15 + _pulse.value * 0.2),
-                              blurRadius: _pressed ? 30 : 12)
-                        ]
-                      : null,
-                ),
-                child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text('💥',
-                          style: TextStyle(
-                              fontSize: hasBombs ? 28 : 22,
-                              color: hasBombs ? null : Colors.grey)),
-                      Text('BOMB',
-                          style: GoogleFonts.rajdhani(
-                              color: bombColor,
-                              fontSize: 9,
-                              fontWeight: FontWeight.w900,
-                              letterSpacing: 1.5)),
-                    ]),
-              ),
-              Positioned(
-                top: -4,
-                right: -4,
-                child: Container(
-                  width: 22,
-                  height: 22,
-                  decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: hasBombs ? bombColor : const Color(0xFF333333),
-                      border: Border.all(color: AppTheme.bg, width: 2)),
-                  child: Center(
-                      child: Text('${widget.bombCount}',
-                          style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 10,
-                              fontWeight: FontWeight.w900))),
-                ),
-              ),
+      child: Transform.scale(
+        scale: scale,
+        child: Stack(clipBehavior: Clip.none, children: [
+          // AnimatedContainer handles the pulse via implicit animation —
+          // no separate AnimationController ticker needed
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 700),
+            curve: Curves.easeInOut,
+            width: 76,
+            height: 76,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: _pressed
+                  ? bombColor.withOpacity(0.4)
+                  : AppTheme.card.withOpacity(0.9),
+              border: Border.all(
+                  color: bombColor.withOpacity(_pressed
+                      ? 1.0
+                      : hasBombs
+                          ? 0.7
+                          : 0.3),
+                  width: _pressed ? 3.0 : 2.0),
+              boxShadow: hasBombs
+                  ? [
+                      BoxShadow(
+                          color: bombColor.withOpacity(_pressed ? 0.7 : 0.25),
+                          blurRadius: _pressed ? 30 : 14)
+                    ]
+                  : null,
+            ),
+            child:
+                Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+              Text('💥',
+                  style: TextStyle(
+                      fontSize: hasBombs ? 28 : 22,
+                      color: hasBombs ? null : Colors.grey)),
+              Text('BOMB',
+                  style: GoogleFonts.rajdhani(
+                      color: bombColor,
+                      fontSize: 9,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 1.5)),
             ]),
-          );
-        },
+          ),
+          Positioned(
+            top: -4,
+            right: -4,
+            child: Container(
+              width: 22,
+              height: 22,
+              decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: hasBombs ? bombColor : const Color(0xFF333333),
+                  border: Border.all(color: AppTheme.bg, width: 2)),
+              child: Center(
+                  child: Text('${widget.bombCount}',
+                      style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w900))),
+            ),
+          ),
+        ]),
       ),
     );
   }
@@ -572,22 +514,28 @@ class _SectorBannerState extends State<_SectorBanner>
     _ctrl = AnimationController(
         vsync: this, duration: const Duration(milliseconds: 2500));
     _anim = CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut);
+    // Listen to game outside of build — never mutate state inside build()
+    widget.game.addListener(_onGameTick);
+  }
+
+  void _onGameTick() {
+    final sector = widget.game.state.sector;
+    if (sector != _lastSector && sector > 1) {
+      _lastSector = sector;
+      _ctrl.forward(from: 0);
+    }
   }
 
   @override
   void dispose() {
+    widget.game.removeListener(_onGameTick);
     _ctrl.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final sector = widget.game.state.sector;
-    if (sector != _lastSector && sector > 1) {
-      _lastSector = sector;
-      _ctrl.forward(from: 0);
-    }
-
+    // Build is ONLY driven by _ctrl animation — no game reads here
     return AnimatedBuilder(
       animation: _anim,
       builder: (_, __) {
@@ -644,6 +592,70 @@ class _SectorBannerState extends State<_SectorBanner>
           ))),
         );
       },
+    );
+  }
+}
+
+// ── RAMPAGE BUTTON ────────────────────────────────────────────────────────────
+// Isolated widget — only rebuilds when isRampageReady changes.
+// Does NOT sit in the 60fps ListenableBuilder chain.
+class _RampageButton extends StatefulWidget {
+  final GameProvider game;
+  const _RampageButton({required this.game});
+  @override
+  State<_RampageButton> createState() => _RampageButtonState();
+}
+
+class _RampageButtonState extends State<_RampageButton> {
+  bool _wasReady = false;
+
+  @override
+  void initState() {
+    super.initState();
+    widget.game.addListener(_onGameChange);
+  }
+
+  void _onGameChange() {
+    final ready = widget.game.isRampageReady;
+    if (ready != _wasReady) {
+      _wasReady = ready;
+      if (mounted) setState(() {});
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.game.removeListener(_onGameChange);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!widget.game.isRampageReady) return const SizedBox.shrink();
+    return Positioned(
+      left: 20,
+      bottom: 100 + MediaQuery.of(context).padding.bottom,
+      child: GestureDetector(
+        onTap: widget.game.activateRampage,
+        child: Container(
+          width: 72,
+          height: 72,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: const Color(0xFF1A0800),
+            border: Border.all(color: const Color(0xFFFF6B00), width: 2.5),
+            boxShadow: [
+              BoxShadow(
+                  color: const Color(0xFFFF6B00).withOpacity(0.6),
+                  blurRadius: 18,
+                  spreadRadius: 2)
+            ],
+          ),
+          child: const Center(
+            child: Text('🔥', style: TextStyle(fontSize: 30)),
+          ),
+        ),
+      ),
     );
   }
 }

@@ -61,21 +61,30 @@ class GamePainter extends CustomPainter {
   }
 
   void _drawNebula(Canvas canvas, Size size) {
+    // NO blur(80) — RadialGradient is identical visually, costs nothing on GPU
     final t = animTick * 0.12;
     final pal = game.palette;
-    final paint = Paint()
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 80)
-      ..style = PaintingStyle.fill;
-    // Sector-colored nebula — more intense per sector
     final intensity = 0.18 + (game.state.sector - 1) * 0.04;
-    paint.color = pal.nebulaColor.withOpacity(intensity + sin(t) * 0.04);
-    canvas.drawCircle(
-        Offset(size.width * 0.18, size.height * 0.35), 220, paint);
-    paint.color = pal.accentA.withOpacity(0.12 + cos(t * 0.8) * 0.04);
-    canvas.drawCircle(Offset(size.width * 0.82, size.height * 0.6), 200, paint);
-    paint.color = pal.accentB.withOpacity(0.09 + sin(t * 1.3) * 0.03);
-    canvas.drawCircle(Offset(size.width * 0.5, size.height * 0.12), 180, paint);
-    paint.maskFilter = null;
+    final paint = Paint()..style = PaintingStyle.fill;
+    void neb(Offset center, double radius, Color col, double op) {
+      paint.shader = RadialGradient(
+        colors: [
+          col.withOpacity(op),
+          col.withOpacity(op * 0.35),
+          Colors.transparent
+        ],
+        stops: const [0.0, 0.55, 1.0],
+      ).createShader(Rect.fromCircle(center: center, radius: radius));
+      canvas.drawCircle(center, radius, paint);
+      paint.shader = null;
+    }
+
+    neb(Offset(size.width * 0.18, size.height * 0.35), 220, pal.nebulaColor,
+        intensity + sin(t) * 0.04);
+    neb(Offset(size.width * 0.82, size.height * 0.6), 200, pal.accentA,
+        0.12 + cos(t * 0.8) * 0.04);
+    neb(Offset(size.width * 0.5, size.height * 0.12), 180, pal.accentB,
+        0.09 + sin(t * 1.3) * 0.03);
   }
 
   void _drawStars(Canvas canvas, Size size) {
@@ -106,7 +115,7 @@ class GamePainter extends CustomPainter {
     final sp = (game.state.speed - 1.0) / 1.8;
     if (sp <= 0.03) return;
     final paint = Paint()..style = PaintingStyle.stroke;
-    final rng = Random(42);
+    final rng = _speedRng;
     final lineColor = game.palette.accentA;
     // More lines + longer at higher speed — dramatic warp effect
     final lineCount = (6 + sp * 14).round();
@@ -128,7 +137,7 @@ class GamePainter extends CustomPainter {
     }
     // At very high speed (sector 4+): full-width streaks across center
     if (sp > 0.7) {
-      final centerRng = Random(99);
+      final centerRng = _centerRng;
       for (int i = 0; i < 3; i++) {
         final y = (centerRng.nextDouble() * size.height + animTick * 300) %
             size.height;
@@ -141,19 +150,20 @@ class GamePainter extends CustomPainter {
 
   void _drawShockwaves(Canvas canvas, Size size) {
     final paint = Paint()..style = PaintingStyle.stroke;
+    // NO blur — three rings at different widths/opacities = identical glow
     for (final sw in game.shockwaves) {
+      final cx = sw.x * size.width;
+      final cy = sw.y * size.height;
       final r = sw.radius * size.width;
-      final opacity = sw.life;
-      paint.strokeWidth = 3.0 * sw.life;
-      paint.color = sw.color.withOpacity(opacity * 0.8);
-      paint.maskFilter = MaskFilter.blur(BlurStyle.normal, 8 * sw.life);
-      canvas.drawCircle(
-          Offset(sw.x * size.width, sw.y * size.height), r, paint);
-      paint.maskFilter = null;
+      paint.strokeWidth = 8.0 * sw.life;
+      paint.color = sw.color.withOpacity(sw.life * 0.20);
+      canvas.drawCircle(Offset(cx, cy), r * 1.12, paint);
+      paint.strokeWidth = 3.5 * sw.life;
+      paint.color = sw.color.withOpacity(sw.life * 0.75);
+      canvas.drawCircle(Offset(cx, cy), r, paint);
       paint.strokeWidth = 1.5 * sw.life;
-      paint.color = Colors.white.withOpacity(opacity * 0.6);
-      canvas.drawCircle(
-          Offset(sw.x * size.width, sw.y * size.height), r * 0.7, paint);
+      paint.color = Colors.white.withOpacity(sw.life * 0.55);
+      canvas.drawCircle(Offset(cx, cy), r * 0.72, paint);
     }
     paint.style = PaintingStyle.fill;
   }
@@ -179,13 +189,15 @@ class GamePainter extends CustomPainter {
       final r = ringT * maxRadius;
       final ringOpacity = (1.0 - ringT) * 0.7;
       paint.style = PaintingStyle.stroke;
-      paint.strokeWidth = 20.0 * (1.0 - ringT);
-      paint.maskFilter = MaskFilter.blur(BlurStyle.normal, 15 * (1 - ringT));
+      // NO blur — three rings replicate the shockwave glow
+      paint.strokeWidth = 26.0 * (1.0 - ringT);
+      paint.color = const Color(0xFFFF6B00).withOpacity(ringOpacity * 0.25);
+      canvas.drawCircle(Offset(cx, cy), r * 1.06, paint);
+      paint.strokeWidth = 14.0 * (1.0 - ringT);
       paint.color = const Color(0xFFFF6B00).withOpacity(ringOpacity);
       canvas.drawCircle(Offset(cx, cy), r, paint);
-      paint.strokeWidth = 8.0 * (1.0 - ringT);
-      paint.maskFilter = null;
-      paint.color = Colors.white.withOpacity(ringOpacity * 0.8);
+      paint.strokeWidth = 5.0 * (1.0 - ringT);
+      paint.color = Colors.white.withOpacity(ringOpacity * 0.85);
       canvas.drawCircle(Offset(cx, cy), r * 0.88, paint);
       paint.style = PaintingStyle.fill;
     }
@@ -193,27 +205,31 @@ class GamePainter extends CustomPainter {
     if (t > 0.2 && t < 0.8) {
       final fT = (t - 0.2) / 0.6;
       final fireRadius = size.width * 0.35 * sin(fT * pi);
-      paint.maskFilter = MaskFilter.blur(BlurStyle.normal, 30 * (1 - fT));
-      paint.color = const Color(0xFFFF3300).withOpacity(0.6 * (1 - fT));
+      // NO blur — layered circles recreate fireball volume
+      final fade = 1.0 - fT;
+      paint.color = const Color(0xFFFF6B00).withOpacity(0.12 * fade);
+      canvas.drawCircle(Offset(cx, cy), fireRadius * 1.5, paint);
+      paint.color = const Color(0xFFFF3300).withOpacity(0.50 * fade);
       canvas.drawCircle(Offset(cx, cy), fireRadius, paint);
-      paint.maskFilter = null;
-      paint.color = Colors.white.withOpacity(0.4 * (1 - fT));
-      canvas.drawCircle(Offset(cx, cy), fireRadius * 0.5, paint);
+      paint.color = Colors.white.withOpacity(0.38 * fade);
+      canvas.drawCircle(Offset(cx, cy), fireRadius * 0.48, paint);
     }
 
     paint.style = PaintingStyle.fill;
-    paint.maskFilter = null;
   }
 
   void _drawTrail(Canvas canvas, Size size) {
+    // NO blur per point — large dim outer + small bright core = identical glow
     final paint = Paint()..style = PaintingStyle.fill;
     for (final t in game.trail) {
-      paint.maskFilter = const MaskFilter.blur(BlurStyle.normal, 4);
-      paint.color = t.color.withOpacity((t.life * 0.7).clamp(0.0, 1.0));
-      canvas.drawCircle(
-          Offset(t.x * size.width, t.y * size.height), t.size * t.life, paint);
+      final cx = t.x * size.width;
+      final cy = t.y * size.height;
+      final r = t.size * t.life;
+      paint.color = t.color.withOpacity((t.life * 0.20).clamp(0.0, 1.0));
+      canvas.drawCircle(Offset(cx, cy), r * 1.9, paint);
+      paint.color = t.color.withOpacity((t.life * 0.80).clamp(0.0, 1.0));
+      canvas.drawCircle(Offset(cx, cy), r, paint);
     }
-    paint.maskFilter = null;
   }
 
   void _drawGhostImages(Canvas canvas, Size size) {
@@ -283,12 +299,11 @@ class GamePainter extends CustomPainter {
     }
     path.close();
 
-    paint.maskFilter = const MaskFilter.blur(BlurStyle.normal, 4);
-    paint.color = Colors.lightBlueAccent.withOpacity(0.3 * opacity);
+    // NO blur — offset shadow path
+    paint.color = Colors.lightBlueAccent.withOpacity(0.18 * opacity);
     canvas.translate(-2, -2);
     canvas.drawPath(path, paint);
     canvas.translate(2, 2);
-    paint.maskFilter = null;
 
     final baseColor1 = Color.lerp(
         const Color(0xFF555555), const Color(0xFF888888), obs.greyShift)!;
@@ -308,9 +323,9 @@ class GamePainter extends CustomPainter {
     if (obs.damageState == DamageState.healthy) {
       paint.style = PaintingStyle.stroke;
       paint.strokeWidth = 2.0;
+      // NO blur on vein — bright stroke reads fine without it
       paint.color =
-          const Color(0xFF00E5FF).withOpacity(0.8 + sin(animTick * 3) * 0.2);
-      paint.maskFilter = const MaskFilter.blur(BlurStyle.normal, 2);
+          const Color(0xFF00E5FF).withOpacity(0.85 + sin(animTick * 3) * 0.15);
       final vein = Path()
         ..moveTo(-r * 0.5, -r * 0.2)
         ..lineTo(-r * 0.1, 0)
@@ -319,7 +334,6 @@ class GamePainter extends CustomPainter {
         ..lineTo(r * 0.2, r * 0.5);
       canvas.drawPath(vein, paint);
       paint.style = PaintingStyle.fill;
-      paint.maskFilter = null;
     }
 
     if (obs.damageState != DamageState.healthy) {
@@ -384,25 +398,26 @@ class GamePainter extends CustomPainter {
           .createShader(sweptRect);
       canvas.drawRect(sweptRect, paint);
       paint.shader = null;
-      paint.color = obs.color.withOpacity(0.3);
-      for (double x = sweptRect.left; x < sweptRect.right; x += 15) {
-        if (Random((x * 10).floor()).nextDouble() > 0.5) {
-          canvas.drawCircle(
-              Offset(x, beamY + beamH * Random(x.floor()).nextDouble()),
-              1.5,
-              paint);
-        }
+      // NO Random() loop — 6 fixed sparks, deterministic, zero allocation
+      paint.color = obs.color.withOpacity(0.38);
+      for (int di = 0; di < 6; di++) {
+        final dx = sweptRect.left + sweptRect.width * (0.05 + di * 0.17);
+        canvas.drawCircle(
+            Offset(dx, beamY + beamH * (0.2 + (di % 3) * 0.3)), 1.5, paint);
       }
     }
 
-    final headRect = Rect.fromLTWH(headX - 30, beamY - 10, 60, beamH + 20);
-    paint.maskFilter = const MaskFilter.blur(BlurStyle.normal, 20);
-    paint.color = obs.color.withOpacity(0.8);
-    canvas.drawRect(headRect, paint);
-    paint.maskFilter = const MaskFilter.blur(BlurStyle.normal, 4);
-    paint.color = Colors.white;
+    // NO blur on sweep head — layered rects of decreasing opacity
+    paint.color = obs.color.withOpacity(0.10);
+    canvas.drawRect(
+        Rect.fromLTWH(headX - 55, beamY - 18, 110, beamH + 36), paint);
+    paint.color = obs.color.withOpacity(0.38);
+    canvas.drawRect(
+        Rect.fromLTWH(headX - 24, beamY - 7, 48, beamH + 14), paint);
+    paint.color = obs.color.withOpacity(0.90);
     canvas.drawRect(Rect.fromLTWH(headX - 10, beamY, 20, beamH), paint);
-    paint.maskFilter = null;
+    paint.color = Colors.white;
+    canvas.drawRect(Rect.fromLTWH(headX - 4, beamY + 1, 8, beamH - 2), paint);
     paint.color = const Color(0xFF222222);
     canvas.drawRRect(
         RRect.fromRectAndRadius(Rect.fromLTWH(headX - 15, beamY - 12, 30, 12),
@@ -427,10 +442,13 @@ class GamePainter extends CustomPainter {
       final cy = coin.y * size.height;
       final pulse = sin(coin.pulsePhase) * 0.15 + 1.0;
       final r = 9.0 * pulse;
-      paint.maskFilter = const MaskFilter.blur(BlurStyle.normal, 10);
-      paint.color = AppTheme.coinColor.withOpacity(0.35);
-      canvas.drawCircle(Offset(cx, cy), r + 5, paint);
-      paint.maskFilter = null;
+      // NO blur — three dim rings create the gold glow
+      paint.color = AppTheme.coinColor.withOpacity(0.08);
+      canvas.drawCircle(Offset(cx, cy), r + 15, paint);
+      paint.color = AppTheme.coinColor.withOpacity(0.18);
+      canvas.drawCircle(Offset(cx, cy), r + 7, paint);
+      paint.color = AppTheme.coinColor.withOpacity(0.30);
+      canvas.drawCircle(Offset(cx, cy), r + 2, paint);
       paint.shader = RadialGradient(colors: [
         const Color(0xFFFFF176),
         AppTheme.coinColor,
@@ -475,11 +493,14 @@ class GamePainter extends CustomPainter {
       canvas.save();
       canvas.translate(cx, cy);
       canvas.rotate(pu.pulsePhase * 0.5);
-      final paint = Paint()
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 14)
-        ..color = color.withOpacity(0.4);
-      canvas.drawCircle(Offset.zero, r * pulse + 6, paint);
-      paint.maskFilter = null;
+      final paint = Paint()..style = PaintingStyle.fill;
+      // NO blur — three concentric dim circles = powerup glow
+      paint.color = color.withOpacity(0.07);
+      canvas.drawCircle(Offset.zero, r * pulse + 20, paint);
+      paint.color = color.withOpacity(0.17);
+      canvas.drawCircle(Offset.zero, r * pulse + 10, paint);
+      paint.color = color.withOpacity(0.30);
+      canvas.drawCircle(Offset.zero, r * pulse + 4, paint);
       final path = Path();
       for (int i = 0; i < 6; i++) {
         final angle = (pi / 3 * i) - pi / 6;
@@ -503,31 +524,110 @@ class GamePainter extends CustomPainter {
   }
 
   void _drawParticles(Canvas canvas, Size size) {
+    // ── SHAPE-AWARE PARTICLE RENDERER ────────────────────────────────────────
+    // Reads 'shape' key set by the particle system:
+    //   'dot'   — circle (coins, power-ups)
+    //   'spark' — tiny bright circle, no halo (bullet hit, metal graze)
+    //   'ember' — round glowing orb with hot core (fire, energy)
+    //   'shard' — thin spinning rectangle (metal wall debris)
+    //   'chunk' — wider tumbling rounded rect (stone/asteroid rubble)
     final paint = Paint()..style = PaintingStyle.fill;
+
     for (final p in game.particles) {
       final life = p['life'] as double;
-      final isDebris = p['isDebris'] as bool? ?? false;
-      final pSize = (p['size'] as double) * life;
-      if (isDebris) {
-        paint.maskFilter = null;
-        paint.color = (p['color'] as Color).withOpacity(life.clamp(0.0, 1.0));
-        canvas.save();
-        canvas.translate(
-            (p['x'] as double) * size.width, (p['y'] as double) * size.height);
-        canvas.rotate(life * 8);
-        canvas.drawRect(
-            Rect.fromCenter(
-                center: Offset.zero, width: pSize, height: pSize * 0.4),
-            paint);
-        canvas.restore();
-      } else {
-        paint.maskFilter = const MaskFilter.blur(BlurStyle.normal, 2);
-        paint.color = (p['color'] as Color).withOpacity(life.clamp(0.0, 1.0));
-        canvas.drawCircle(
-            Offset((p['x'] as double) * size.width,
-                (p['y'] as double) * size.height),
-            pSize,
-            paint);
+      if (life <= 0) continue;
+      final col = p['color'] as Color;
+      final rawSize = p['size'] as double;
+      final pSize = rawSize * life;
+      final px = (p['x'] as double) * size.width;
+      final py = (p['y'] as double) * size.height;
+      final shape = p['shape'] as String? ?? 'dot';
+
+      switch (shape) {
+        // ── DOT ────────────────────────────────────────────────────────────
+        case 'dot':
+          paint.color = col.withOpacity((life * 0.16).clamp(0.0, 1.0));
+          canvas.drawCircle(Offset(px, py), pSize * 1.9, paint);
+          paint.color = col.withOpacity(life.clamp(0.0, 1.0));
+          canvas.drawCircle(Offset(px, py), pSize, paint);
+          break;
+
+        // ── SPARK: tiny bright needle, fades quickly ───────────────────────
+        case 'spark':
+          paint.color = Colors.white.withOpacity(life.clamp(0.0, 1.0));
+          canvas.drawCircle(Offset(px, py), (pSize * 0.9).clamp(0.4, 3.2), paint);
+          paint.color = col.withOpacity((life * 0.6).clamp(0.0, 1.0));
+          canvas.drawCircle(Offset(px, py), (pSize * 0.55).clamp(0.3, 2.0), paint);
+          break;
+
+        // ── EMBER: glowing orb with hot bright core ────────────────────────
+        case 'ember':
+          paint.color = col.withOpacity((life * 0.11).clamp(0.0, 1.0));
+          canvas.drawCircle(Offset(px, py), pSize * 2.3, paint);
+          paint.color = col.withOpacity((life * 0.68).clamp(0.0, 1.0));
+          canvas.drawCircle(Offset(px, py), pSize, paint);
+          paint.color = Colors.white.withOpacity((life * 0.52).clamp(0.0, 1.0));
+          canvas.drawCircle(Offset(px, py), pSize * 0.36, paint);
+          break;
+
+        // ── SHARD: thin elongated rectangle, spinning metal debris ─────────
+        // Represents: wall panels, mine spike tips, ship hull fragments.
+        case 'shard':
+          final angle = p['angle'] as double? ?? 0.0;
+          final aspect = p['aspect'] as double? ?? 0.22;
+          final w = pSize;
+          final h = (pSize * aspect).clamp(0.6, w);
+          canvas.save();
+          canvas.translate(px, py);
+          canvas.rotate(angle);
+          // Main shard body
+          paint.color = col.withOpacity(life.clamp(0.0, 1.0));
+          canvas.drawRect(
+              Rect.fromCenter(center: Offset.zero, width: w, height: h), paint);
+          // Single specular gleam on lit face (top-left light source)
+          paint.color = Colors.white.withOpacity((life * 0.32).clamp(0.0, 1.0));
+          canvas.drawRect(
+              Rect.fromCenter(
+                  center: Offset(0, -h * 0.28),
+                  width: w * 0.85,
+                  height: h * 0.28),
+              paint);
+          canvas.restore();
+          break;
+
+        // ── CHUNK: wider rounded rect, tumbling stone/wood debris ──────────
+        // Represents: asteroid rubble, chest wood fragments.
+        case 'chunk':
+          final angle = p['angle'] as double? ?? 0.0;
+          final aspect = p['aspect'] as double? ?? 0.65;
+          final w = pSize;
+          final h = (pSize * aspect).clamp(1.0, w * 1.2);
+          canvas.save();
+          canvas.translate(px, py);
+          canvas.rotate(angle);
+          // Main chunk body
+          paint.color = col.withOpacity(life.clamp(0.0, 1.0));
+          canvas.drawRRect(
+              RRect.fromRectAndRadius(
+                  Rect.fromCenter(center: Offset.zero, width: w, height: h),
+                  Radius.circular(h * 0.20)),
+              paint);
+          // Lit top edge (simulates 3D volume under top-left light)
+          paint.color = Colors.white.withOpacity((life * 0.20).clamp(0.0, 1.0));
+          canvas.drawRRect(
+              RRect.fromRectAndRadius(
+                  Rect.fromCenter(
+                      center: Offset(-w * 0.06, -h * 0.28),
+                      width: w * 0.82,
+                      height: h * 0.22),
+                  Radius.circular(2)),
+              paint);
+          canvas.restore();
+          break;
+
+        default:
+          paint.color = col.withOpacity(life.clamp(0.0, 1.0));
+          canvas.drawCircle(Offset(px, py), pSize, paint);
       }
     }
     paint.maskFilter = null;
@@ -607,6 +707,10 @@ class GamePainter extends CustomPainter {
             ? Offset(center.dx - tp.width / 2, center.dy - tp.height / 2)
             : center);
   }
+
+  // Cached — avoids allocating Random on every frame
+  static final _speedRng = Random(42);
+  static final _centerRng = Random(99);
 
   @override
   bool shouldRepaint(GamePainter old) => true;
