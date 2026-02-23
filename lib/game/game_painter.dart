@@ -8,6 +8,8 @@ import 'painters/chest_painter.dart';
 import 'painters/gate_painter.dart';
 import 'painters/mine_painter.dart';
 import 'painters/bullet_painter.dart';
+import 'painters/boss_painter.dart' as boss_p;
+import 'painters/overlay_painter.dart' as overlay_p;
 import 'ships/ships.dart';
 
 class GamePainter extends CustomPainter {
@@ -32,12 +34,30 @@ class GamePainter extends CustomPainter {
     drawBullets(canvas, size, game.bullets);
     _drawParticles(canvas, size);
     _drawBombEffect(canvas, size);
+    boss_p.drawBossMissiles(canvas, size, game);
+    boss_p.drawBossShip(canvas, size, game, animTick, _drawText);
     _drawShip(canvas, size);
+    overlay_p.drawRampageOverlay(canvas, size, game, _drawText);
+    overlay_p.drawGauntletOverlay(canvas, size, game, _drawText);
+    // Overlay effects — drawn last so they sit on top of everything
+    overlay_p.drawDangerVignette(canvas, size, game, animTick);
+    overlay_p.drawSweepWarning(canvas, size, game);
+    overlay_p.drawNearMissFlash(canvas, size, game, _drawText);
+    overlay_p.drawComboFlash(canvas, size, game);
   }
 
   void _drawSpaceBackground(Canvas canvas, Size size) {
-    canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height),
-        Paint()..color = AppTheme.bg);
+    // Sector-tinted background for stronger sector identity
+    final pal = game.palette;
+    final sectorTint = pal.nebulaColor;
+    final paint = Paint()
+      ..shader = LinearGradient(
+        colors: [AppTheme.bg, Color.lerp(AppTheme.bg, sectorTint, 0.15)!],
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+      ).createShader(Rect.fromLTWH(0, 0, size.width, size.height));
+    canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), paint);
+    paint.shader = null;
   }
 
   void _drawNebula(Canvas canvas, Size size) {
@@ -46,14 +66,15 @@ class GamePainter extends CustomPainter {
     final paint = Paint()
       ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 80)
       ..style = PaintingStyle.fill;
-    // Sector-colored nebula — visible tint
-    paint.color = pal.nebulaColor.withOpacity(0.22 + sin(t) * 0.04);
+    // Sector-colored nebula — more intense per sector
+    final intensity = 0.18 + (game.state.sector - 1) * 0.04;
+    paint.color = pal.nebulaColor.withOpacity(intensity + sin(t) * 0.04);
     canvas.drawCircle(
-        Offset(size.width * 0.18, size.height * 0.35), 200, paint);
-    paint.color = pal.accentA.withOpacity(0.10 + cos(t * 0.8) * 0.03);
-    canvas.drawCircle(Offset(size.width * 0.82, size.height * 0.6), 180, paint);
-    paint.color = pal.accentB.withOpacity(0.07 + sin(t * 1.3) * 0.02);
-    canvas.drawCircle(Offset(size.width * 0.5, size.height * 0.12), 160, paint);
+        Offset(size.width * 0.18, size.height * 0.35), 220, paint);
+    paint.color = pal.accentA.withOpacity(0.12 + cos(t * 0.8) * 0.04);
+    canvas.drawCircle(Offset(size.width * 0.82, size.height * 0.6), 200, paint);
+    paint.color = pal.accentB.withOpacity(0.09 + sin(t * 1.3) * 0.03);
+    canvas.drawCircle(Offset(size.width * 0.5, size.height * 0.12), 180, paint);
     paint.maskFilter = null;
   }
 
@@ -82,24 +103,38 @@ class GamePainter extends CustomPainter {
   }
 
   void _drawSpeedLines(Canvas canvas, Size size) {
-    final sp = (game.state.speed - 1.0) / 2.0;
-    if (sp <= 0.05) return;
-    final paint = Paint()
-      ..strokeWidth = 0.8
-      ..style = PaintingStyle.stroke;
+    final sp = (game.state.speed - 1.0) / 1.8;
+    if (sp <= 0.03) return;
+    final paint = Paint()..style = PaintingStyle.stroke;
     final rng = Random(42);
     final lineColor = game.palette.accentA;
+    // More lines + longer at higher speed — dramatic warp effect
+    final lineCount = (6 + sp * 14).round();
+    final maxLen = 20.0 + sp * 120.0;
     for (int side = 0; side < 2; side++) {
-      for (int i = 0; i < 8; i++) {
-        final x = side == 0
-            ? rng.nextDouble() * size.width * 0.12
-            : size.width - rng.nextDouble() * size.width * 0.12;
+      for (int i = 0; i < lineCount; i++) {
+        final xBand = side == 0
+            ? rng.nextDouble() * size.width * 0.18
+            : size.width - rng.nextDouble() * size.width * 0.18;
         final y = (rng.nextDouble() * size.height +
-                animTick * 180 * game.state.speed) %
+                animTick * 200 * game.state.speed) %
             size.height;
-        final len = 18.0 + rng.nextDouble() * 35;
-        paint.color = lineColor.withOpacity(0.07 * sp);
-        canvas.drawLine(Offset(x, y), Offset(x, y + len), paint);
+        final len = (8.0 + rng.nextDouble() * maxLen);
+        final lineOpacity = (0.04 + sp * 0.13) * (0.5 + rng.nextDouble() * 0.5);
+        paint.strokeWidth = 0.5 + sp * 1.2;
+        paint.color = lineColor.withOpacity(lineOpacity.clamp(0.0, 0.55));
+        canvas.drawLine(Offset(xBand, y), Offset(xBand, y + len), paint);
+      }
+    }
+    // At very high speed (sector 4+): full-width streaks across center
+    if (sp > 0.7) {
+      final centerRng = Random(99);
+      for (int i = 0; i < 3; i++) {
+        final y = (centerRng.nextDouble() * size.height + animTick * 300) %
+            size.height;
+        paint.strokeWidth = 0.3;
+        paint.color = Colors.white.withOpacity(0.04 * (sp - 0.7));
+        canvas.drawLine(Offset(0, y), Offset(size.width, y), paint);
       }
     }
   }
@@ -502,14 +537,15 @@ class GamePainter extends CustomPainter {
     final p = game.player;
     final cx = p.x * size.width;
     final cy = p.y * size.height;
-    final r = p.size.toDouble() * 1.2;
+    final r = p.size.toDouble() * 1.44; // 20% bigger than original 1.2
     final color = p.color;
-    final rawLean = p.velocityX * 30;
-    final lean = rawLean.abs() < 0.8 ? 0.0 : rawLean;
+    // Use gentle rotation instead of skew — skew causes the "shaking" bug
+    final rawLean = p.velocityX * 18;
+    final lean = rawLean.abs() < 1.0 ? 0.0 : rawLean.clamp(-12.0, 12.0);
 
     canvas.save();
     canvas.translate(cx, cy);
-    canvas.skew(lean * 0.01, 0);
+    canvas.rotate(lean * 0.012); // subtle roll, no skew
 
     if (game.state.isShieldActive) {
       final sp = sin(animTick * 6) * 0.2 + 0.8;

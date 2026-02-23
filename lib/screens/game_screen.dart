@@ -2,6 +2,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../providers/game_provider.dart';
 import '../providers/settings_provider.dart';
 import '../models/game_models.dart';
@@ -26,15 +27,16 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   late Animation<double> _toastAnim;
   late AnimationController _animController;
 
-  bool _showBombFlash = false;
-
   @override
   void initState() {
     super.initState();
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
     _game = GameProvider();
-    _animController = AnimationController(vsync: this, duration: const Duration(seconds: 1))..repeat();
-    _toastCtrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 1800));
+    _animController =
+        AnimationController(vsync: this, duration: const Duration(seconds: 1))
+          ..repeat();
+    _toastCtrl = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 1800));
     _toastAnim = CurvedAnimation(parent: _toastCtrl, curve: Curves.easeInOut);
   }
 
@@ -55,11 +57,17 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
           settings.updateBestScore(_game.state.score);
           settings.addCoins(_game.state.coins);
           settings.incrementGamesPlayed();
-          Navigator.pushReplacement(context, PageRouteBuilder(
-            pageBuilder: (_, __, ___) => GameOverScreen(score: _game.state.score, coins: _game.state.coins, maxCombo: _game.state.maxCombo),
-            transitionsBuilder: (_, a, __, c) => FadeTransition(opacity: a, child: c),
-            transitionDuration: const Duration(milliseconds: 400),
-          ));
+          Navigator.pushReplacement(
+              context,
+              PageRouteBuilder(
+                pageBuilder: (_, __, ___) => GameOverScreen(
+                    score: _game.state.score,
+                    coins: _game.state.coins,
+                    maxCombo: _game.state.maxCombo),
+                transitionsBuilder: (_, a, __, c) =>
+                    FadeTransition(opacity: a, child: c),
+                transitionDuration: const Duration(milliseconds: 400),
+              ));
         });
       };
 
@@ -67,21 +75,19 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
         if (!mounted) return;
         HapticFeedback.heavyImpact();
         setState(() => _showHitFlash = true);
-        Future.delayed(const Duration(milliseconds: 180), () { if (mounted) setState(() => _showHitFlash = false); });
+        Future.delayed(const Duration(milliseconds: 180), () {
+          if (mounted) setState(() => _showHitFlash = false);
+        });
       };
 
       _game.onCoinCollected = () => HapticFeedback.lightImpact();
 
       _game.onRewardCollected = (String text) {
         if (!mounted) return;
-        final isBomb = text.contains('BOMB');
-        if (isBomb) {
-          setState(() => _showBombFlash = true);
-          HapticFeedback.heavyImpact();
-          Future.delayed(const Duration(milliseconds: 300), () { if (mounted) setState(() => _showBombFlash = false); });
-        }
         setState(() => _rewardText = text);
-        _toastCtrl.forward(from: 0).then((_) { if (mounted) setState(() => _rewardText = null); });
+        _toastCtrl.forward(from: 0).then((_) {
+          if (mounted) setState(() => _rewardText = null);
+        });
         HapticFeedback.mediumImpact();
       };
 
@@ -101,130 +107,255 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   void _triggerBomb() {
     if (_game.state.bombs <= 0) return;
     HapticFeedback.heavyImpact();
-    _game.detonateBomb();
-    setState(() => _showBombFlash = true);
-    Future.delayed(const Duration(milliseconds: 400), () { if (mounted) setState(() => _showBombFlash = false); });
+    _game
+        .detonateBomb(); // notifyListeners() already triggers rebuild — no setState needed here
   }
 
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
-    final pal = _game.palette;
+
+    // ── ARCHITECTURE FIX ──────────────────────────────────────────────────
+    // OLD: AnimatedBuilder wraps ListenableBuilder — every notifyListeners()
+    //      (60x/sec) rebuilds the entire Stack: HUD, toast, bomb button, all.
+    //      On bomb tap: detonateBomb() fires notifyListeners() which triggers
+    //      a full-tree rebuild at the exact moment we're doing heavy work.
+    //
+    // NEW: Two separate layers.
+    //   Layer 1 — _GameCanvas: ListenableBuilder only. Rebuilds 60x/sec.
+    //             Contains ONLY the CustomPaint + screen-space overlays that
+    //             read from game state (bomb flash, shield, slow tint).
+    //             These are cheap — just color containers over a canvas.
+    //   Layer 2 — UI widgets: driven by setState only (hit flash, toast).
+    //             HUD, bomb button, toast, pause — rebuild only when needed.
+    //
+    // Result: bomb tap no longer forces HUD + toast + button to rebuild.
+    // ─────────────────────────────────────────────────────────────────────
 
     return Scaffold(
       backgroundColor: AppTheme.bg,
-      body: AnimatedBuilder(
-        animation: _animController,
-        builder: (context, _) {
-          return ListenableBuilder(
-            listenable: _game,
-            builder: (context, _) {
-              return Stack(children: [
-                // Game canvas
-                GestureDetector(
-                  onPanUpdate: (d) => _game.moveTo(d.localPosition.dx / size.width, d.localPosition.dy / size.height),
-                  onTapDown: (d) => _game.moveTo(d.localPosition.dx / size.width, d.localPosition.dy / size.height),
-                  child: Transform.translate(
-                    offset: _game.shakeOffset,
-                    child: CustomPaint(size: size, painter: GamePainter(_game, _game.animTick)),
-                  ),
-                ),
+      body: Stack(children: [
+        // ── LAYER 1: Game canvas — fast, 60fps, game-state driven ──────────
+        _GameCanvas(game: _game),
 
-                // Slow time tint
-                if (_game.state.isSlowActive)
-                  Positioned.fill(child: IgnorePointer(child: Container(color: AppTheme.slowColor.withOpacity(0.04)))),
+        // ── LAYER 2: UI overlays — setState driven, rebuild only when needed
 
-                // Hit flash
-                if (_showHitFlash)
-                  Positioned.fill(child: IgnorePointer(child: Container(color: AppTheme.danger.withOpacity(0.28)))),
+        // Hit flash (setState in onHit callback)
+        if (_showHitFlash)
+          Positioned.fill(
+              child: IgnorePointer(
+                  child: Container(color: AppTheme.danger.withOpacity(0.28)))),
 
-                // Bomb flash
-                if (_showBombFlash)
-                  Positioned.fill(child: IgnorePointer(child: Container(color: const Color(0xFFFF6B00).withOpacity(0.15)))),
+        // HUD — ListenableBuilder inside so only HUD rebuilds, not canvas
+        SafeArea(
+            child: _HUD(
+                game: _game,
+                onBack: () {
+                  _game.stopGame();
+                  Navigator.pop(context);
+                })),
 
-                // Shield border — sector colored
-                if (_game.state.isShieldActive)
-                  Positioned.fill(child: IgnorePointer(child: Container(
-                    decoration: BoxDecoration(border: Border.all(color: AppTheme.accentAlt.withOpacity(0.5), width: 2)),
-                  ))),
+        // Bomb button
+        Positioned(
+          right: 20,
+          bottom: 40 + MediaQuery.of(context).padding.bottom,
+          child: _BombButton(
+              color: _game.player.color,
+              bombCount: _game.state.bombs,
+              onTap: _triggerBomb),
+        ),
 
-                // Sector color vignette (very subtle)
-                Positioned.fill(child: IgnorePointer(child: Container(
-                  decoration: BoxDecoration(gradient: RadialGradient(
-                    colors: [Colors.transparent, pal.nebulaColor.withOpacity(0.28)],
-                    center: Alignment.center,
-                    radius: 1.1,
-                  )),
-                ))),
-
-                // HUD
-                SafeArea(child: _HUD(game: _game, onBack: () { _game.stopGame(); Navigator.pop(context); })),
-
-                // Bomb button
-                Positioned(
-                  right: 20,
-                  bottom: 40 + MediaQuery.of(context).padding.bottom,
-                  child: _BombButton(color: _game.player.color, bombCount: _game.state.bombs, onTap: _triggerBomb),
-                ),
-
-                // Weapon indicator (bottom left)
-                if (_game.state.weaponTimer > 0)
-                  Positioned(
-                    left: 20,
-                    bottom: 40 + MediaQuery.of(context).padding.bottom,
-                    child: _WeaponIndicator(game: _game),
-                  ),
-
-                // Reward toast
-                if (_rewardText != null)
-                  Positioned(
-                    top: size.height * 0.28,
-                    left: 0,
-                    right: 0,
-                    child: AnimatedBuilder(
-                      animation: _toastAnim,
-                      builder: (_, __) {
-                        final opacity = sin(_toastAnim.value * pi).clamp(0.0, 1.0);
-                        final yOffset = -20 * _toastAnim.value;
-                        final isBomb = _rewardText!.contains('BOMB');
-                        return Transform.translate(
-                          offset: Offset(0, yOffset),
-                          child: Opacity(
-                            opacity: opacity,
-                            child: Center(
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                                decoration: BoxDecoration(
-                                  color: AppTheme.card.withOpacity(0.95),
-                                  borderRadius: BorderRadius.circular(30),
-                                  border: Border.all(color: (isBomb ? const Color(0xFFFF6B00) : AppTheme.coinColor).withOpacity(0.7), width: 1.5),
-                                  boxShadow: [BoxShadow(color: (isBomb ? const Color(0xFFFF6B00) : AppTheme.coinColor).withOpacity(0.3), blurRadius: 20)],
-                                ),
-                                child: Text(_rewardText!, style: TextStyle(
-                                  color: isBomb ? const Color(0xFFFF6B00) : AppTheme.coinColor,
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.w900,
-                                  letterSpacing: 2,
-                                )),
-                              ),
-                            ),
-                          ),
-                        );
-                      },
+        // Rampage button — appears when charge >= 1 (sector 3+)
+        ListenableBuilder(
+          listenable: _game,
+          builder: (context, _) {
+            if (!_game.isRampageReady) return const SizedBox.shrink();
+            return Positioned(
+              left: 20,
+              bottom: 100 + MediaQuery.of(context).padding.bottom,
+              child: GestureDetector(
+                onTap: _game.activateRampage,
+                child: TweenAnimationBuilder<double>(
+                  tween: Tween(begin: 0.9, end: 1.08),
+                  duration: const Duration(milliseconds: 500),
+                  curve: Curves.easeInOut,
+                  builder: (context, scale, child) =>
+                      Transform.scale(scale: scale, child: child),
+                  child: Container(
+                    width: 72,
+                    height: 72,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: const Color(0xFF1A0800),
+                      border: Border.all(
+                          color: const Color(0xFFFF6B00), width: 2.5),
+                      boxShadow: [
+                        BoxShadow(
+                            color: const Color(0xFFFF6B00).withOpacity(0.6),
+                            blurRadius: 18,
+                            spreadRadius: 2)
+                      ],
+                    ),
+                    child: const Center(
+                      child: Text('🔥', style: TextStyle(fontSize: 30)),
                     ),
                   ),
+                ),
+              ),
+            );
+          },
+        ),
 
-                // Pause overlay
-                if (_game.state.isPaused)
-                  _PauseOverlay(game: _game, onQuit: () { _game.stopGame(); Navigator.pop(context); }),
+        // Weapon indicator
+        if (_game.state.weaponTimer > 0)
+          Positioned(
+            left: 20,
+            bottom: 40 + MediaQuery.of(context).padding.bottom,
+            child: _WeaponIndicator(game: _game),
+          ),
 
-                // Sector banner
-                _SectorBanner(game: _game),
-              ]);
-            },
-          );
-        },
-      ),
+        // Reward toast — only mounts when _rewardText != null (setState)
+        if (_rewardText != null)
+          Positioned(
+            top: size.height * 0.28,
+            left: 0,
+            right: 0,
+            child: AnimatedBuilder(
+              animation: _toastAnim,
+              builder: (_, __) {
+                final opacity = sin(_toastAnim.value * pi).clamp(0.0, 1.0);
+                final yOffset = -20 * _toastAnim.value;
+                final isBomb = _rewardText!.contains('BOMB');
+                return Transform.translate(
+                  offset: Offset(0, yOffset),
+                  child: Opacity(
+                    opacity: opacity,
+                    child: Center(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 24, vertical: 12),
+                        decoration: BoxDecoration(
+                          color: AppTheme.card.withOpacity(0.95),
+                          borderRadius: BorderRadius.circular(30),
+                          border: Border.all(
+                              color: (isBomb
+                                      ? const Color(0xFFFF6B00)
+                                      : AppTheme.coinColor)
+                                  .withOpacity(0.7),
+                              width: 1.5),
+                          boxShadow: [
+                            BoxShadow(
+                                color: (isBomb
+                                        ? const Color(0xFFFF6B00)
+                                        : AppTheme.coinColor)
+                                    .withOpacity(0.3),
+                                blurRadius: 20)
+                          ],
+                        ),
+                        child: Text(
+                          _rewardText!,
+                          style: GoogleFonts.rajdhani(
+                            color: isBomb
+                                ? const Color(0xFFFF6B00)
+                                : AppTheme.coinColor,
+                            fontSize: 20,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 2,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+
+        // Pause overlay
+        if (_game.state.isPaused)
+          _PauseOverlay(
+              game: _game,
+              onQuit: () {
+                _game.stopGame();
+                Navigator.pop(context);
+              }),
+
+        // Sector banner
+        _SectorBanner(game: _game),
+      ]),
+    );
+  }
+}
+
+// ── GAME CANVAS — isolated fast layer ────────────────────────────────────────
+// Only this widget rebuilds at 60fps. HUD, toast, buttons are in parent Stack
+// and only rebuild on setState. This is the key architectural fix.
+class _GameCanvas extends StatelessWidget {
+  final GameProvider game;
+  const _GameCanvas({required this.game});
+
+  @override
+  Widget build(BuildContext context) {
+    final size = MediaQuery.of(context).size;
+    final pal = game.palette;
+
+    return ListenableBuilder(
+      listenable: game,
+      builder: (context, _) {
+        return Stack(children: [
+          // The actual game render
+          GestureDetector(
+            onPanUpdate: (d) => game.moveTo(d.localPosition.dx / size.width,
+                d.localPosition.dy / size.height),
+            onTapDown: (d) => game.moveTo(d.localPosition.dx / size.width,
+                d.localPosition.dy / size.height),
+            child: Transform.translate(
+              offset: game.shakeOffset,
+              child: CustomPaint(
+                  size: size, painter: GamePainter(game, game.animTick)),
+            ),
+          ),
+
+          // Slow time tint — cheap, game-state driven
+          if (game.state.isSlowActive)
+            Positioned.fill(
+                child: IgnorePointer(
+                    child: Container(
+                        color: AppTheme.slowColor.withOpacity(0.04)))),
+
+          // Bomb flash — fades via detonationTimer, no setState needed
+          if (game.activeBomb != null)
+            Positioned.fill(
+                child: IgnorePointer(
+                    child: Opacity(
+              opacity: ((1.0 - game.activeBomb!.detonationTimer) * 0.35)
+                  .clamp(0.0, 0.35),
+              child: Container(color: const Color(0xFFFF6B00)),
+            ))),
+
+          // Shield border
+          if (game.state.isShieldActive)
+            Positioned.fill(
+                child: IgnorePointer(
+                    child: Container(
+              decoration: BoxDecoration(
+                  border: Border.all(
+                      color: AppTheme.accentAlt.withOpacity(0.5), width: 2)),
+            ))),
+
+          // Sector vignette
+          Positioned.fill(
+              child: IgnorePointer(
+                  child: Container(
+            decoration: BoxDecoration(
+                gradient: RadialGradient(
+              colors: [Colors.transparent, pal.nebulaColor.withOpacity(0.28)],
+              center: Alignment.center,
+              radius: 1.1,
+            )),
+          ))),
+        ]);
+      },
     );
   }
 }
@@ -241,10 +372,26 @@ class _WeaponIndicator extends StatelessWidget {
     String label;
     String icon;
     switch (weapon) {
-      case WeaponType.rapidFire: color = Colors.yellowAccent; label = 'RAPID FIRE'; icon = '⚡'; break;
-      case WeaponType.spread: color = Colors.orangeAccent; label = 'SPREAD'; icon = '✦'; break;
-      case WeaponType.laser: color = Colors.redAccent; label = 'LASER'; icon = '⟐'; break;
-      default: color = game.player.color; label = 'STANDARD'; icon = '●'; break;
+      case WeaponType.rapidFire:
+        color = Colors.yellowAccent;
+        label = 'RAPID FIRE';
+        icon = '⚡';
+        break;
+      case WeaponType.spread:
+        color = Colors.orangeAccent;
+        label = 'SPREAD';
+        icon = '✦';
+        break;
+      case WeaponType.laser:
+        color = Colors.redAccent;
+        label = 'LASER';
+        icon = '⟐';
+        break;
+      default:
+        color = game.player.color;
+        label = 'STANDARD';
+        icon = '●';
+        break;
     }
     final progress = (game.state.weaponTimer / 8.0).clamp(0.0, 1.0);
 
@@ -256,20 +403,31 @@ class _WeaponIndicator extends StatelessWidget {
         border: Border.all(color: color.withOpacity(0.5), width: 1.5),
         boxShadow: [BoxShadow(color: color.withOpacity(0.2), blurRadius: 12)],
       ),
-      child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.center, children: [
-        Text(icon, style: TextStyle(fontSize: 18, color: color)),
-        const SizedBox(height: 4),
-        Text(label, style: TextStyle(color: color, fontSize: 8, fontWeight: FontWeight.w900, letterSpacing: 1.5)),
-        const SizedBox(height: 6),
-        SizedBox(
-          width: 50,
-          height: 3,
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(2),
-            child: LinearProgressIndicator(value: progress, backgroundColor: AppTheme.bg, color: color),
-          ),
-        ),
-      ]),
+      child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Text(icon, style: TextStyle(fontSize: 18, color: color)),
+            const SizedBox(height: 4),
+            Text(label,
+                style: GoogleFonts.rajdhani(
+                    color: color,
+                    fontSize: 9,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 1.5)),
+            const SizedBox(height: 6),
+            SizedBox(
+              width: 50,
+              height: 3,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(2),
+                child: LinearProgressIndicator(
+                    value: progress,
+                    backgroundColor: AppTheme.bg,
+                    color: color),
+              ),
+            ),
+          ]),
     );
   }
 }
@@ -279,60 +437,110 @@ class _BombButton extends StatefulWidget {
   final Color color;
   final int bombCount;
   final VoidCallback onTap;
-  const _BombButton({required this.color, required this.bombCount, required this.onTap});
+  const _BombButton(
+      {required this.color, required this.bombCount, required this.onTap});
 
   @override
   State<_BombButton> createState() => _BombButtonState();
 }
 
-class _BombButtonState extends State<_BombButton> with SingleTickerProviderStateMixin {
+class _BombButtonState extends State<_BombButton>
+    with SingleTickerProviderStateMixin {
   bool _pressed = false;
   late AnimationController _pulse;
 
   @override
   void initState() {
     super.initState();
-    _pulse = AnimationController(vsync: this, duration: const Duration(milliseconds: 900))..repeat(reverse: true);
+    _pulse = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 900))
+      ..repeat(reverse: true);
   }
 
   @override
-  void dispose() { _pulse.dispose(); super.dispose(); }
+  void dispose() {
+    _pulse.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final hasBombs = widget.bombCount > 0;
-    final bombColor = hasBombs ? const Color(0xFFFF6B2B) : const Color(0xFF444444);
+    final bombColor =
+        hasBombs ? const Color(0xFFFF6B2B) : const Color(0xFF444444);
 
     return GestureDetector(
-      onTapDown: (_) { if (hasBombs) setState(() => _pressed = true); },
-      onTapUp: (_) { setState(() => _pressed = false); if (hasBombs) widget.onTap(); },
+      onTapDown: (_) {
+        if (hasBombs) setState(() => _pressed = true);
+      },
+      onTapUp: (_) {
+        setState(() => _pressed = false);
+        if (hasBombs) widget.onTap();
+      },
       onTapCancel: () => setState(() => _pressed = false),
       child: AnimatedBuilder(
         animation: _pulse,
         builder: (_, __) {
-          final scale = _pressed ? 0.88 : (hasBombs ? 1.0 + _pulse.value * 0.06 : 1.0);
+          final scale =
+              _pressed ? 0.88 : (hasBombs ? 1.0 + _pulse.value * 0.06 : 1.0);
           return Transform.scale(
             scale: scale,
             child: Stack(clipBehavior: Clip.none, children: [
               Container(
-                width: 76, height: 76,
+                width: 76,
+                height: 76,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: _pressed ? bombColor.withOpacity(0.4) : AppTheme.card.withOpacity(0.9),
-                  border: Border.all(color: bombColor.withOpacity(_pressed ? 1.0 : hasBombs ? 0.5 + _pulse.value * 0.3 : 0.3), width: _pressed ? 3.0 : 2.0),
-                  boxShadow: hasBombs ? [BoxShadow(color: bombColor.withOpacity(_pressed ? 0.7 : 0.15 + _pulse.value * 0.2), blurRadius: _pressed ? 30 : 12)] : null,
+                  color: _pressed
+                      ? bombColor.withOpacity(0.4)
+                      : AppTheme.card.withOpacity(0.9),
+                  border: Border.all(
+                      color: bombColor.withOpacity(_pressed
+                          ? 1.0
+                          : hasBombs
+                              ? 0.5 + _pulse.value * 0.3
+                              : 0.3),
+                      width: _pressed ? 3.0 : 2.0),
+                  boxShadow: hasBombs
+                      ? [
+                          BoxShadow(
+                              color: bombColor.withOpacity(
+                                  _pressed ? 0.7 : 0.15 + _pulse.value * 0.2),
+                              blurRadius: _pressed ? 30 : 12)
+                        ]
+                      : null,
                 ),
-                child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                  Text('💥', style: TextStyle(fontSize: hasBombs ? 28 : 22, color: hasBombs ? null : Colors.grey)),
-                  Text('BOMB', style: TextStyle(color: bombColor, fontSize: 9, fontWeight: FontWeight.w900, letterSpacing: 1.5)),
-                ]),
+                child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text('💥',
+                          style: TextStyle(
+                              fontSize: hasBombs ? 28 : 22,
+                              color: hasBombs ? null : Colors.grey)),
+                      Text('BOMB',
+                          style: GoogleFonts.rajdhani(
+                              color: bombColor,
+                              fontSize: 9,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: 1.5)),
+                    ]),
               ),
               Positioned(
-                top: -4, right: -4,
+                top: -4,
+                right: -4,
                 child: Container(
-                  width: 22, height: 22,
-                  decoration: BoxDecoration(shape: BoxShape.circle, color: hasBombs ? bombColor : const Color(0xFF333333), border: Border.all(color: AppTheme.bg, width: 2)),
-                  child: Center(child: Text('${widget.bombCount}', style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w900))),
+                  width: 22,
+                  height: 22,
+                  decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: hasBombs ? bombColor : const Color(0xFF333333),
+                      border: Border.all(color: AppTheme.bg, width: 2)),
+                  child: Center(
+                      child: Text('${widget.bombCount}',
+                          style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w900))),
                 ),
               ),
             ]),
@@ -352,7 +560,8 @@ class _SectorBanner extends StatefulWidget {
   State<_SectorBanner> createState() => _SectorBannerState();
 }
 
-class _SectorBannerState extends State<_SectorBanner> with SingleTickerProviderStateMixin {
+class _SectorBannerState extends State<_SectorBanner>
+    with SingleTickerProviderStateMixin {
   late AnimationController _ctrl;
   late Animation<double> _anim;
   int _lastSector = 1;
@@ -360,45 +569,76 @@ class _SectorBannerState extends State<_SectorBanner> with SingleTickerProviderS
   @override
   void initState() {
     super.initState();
-    _ctrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 2500));
+    _ctrl = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 2500));
     _anim = CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut);
   }
 
   @override
-  void dispose() { _ctrl.dispose(); super.dispose(); }
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final sector = widget.game.state.sector;
-    if (sector != _lastSector && sector > 1) { _lastSector = sector; _ctrl.forward(from: 0); }
+    if (sector != _lastSector && sector > 1) {
+      _lastSector = sector;
+      _ctrl.forward(from: 0);
+    }
 
     return AnimatedBuilder(
       animation: _anim,
       builder: (_, __) {
-        final opacity = _ctrl.isAnimating ? (sin(_anim.value * pi)).clamp(0.0, 1.0) : 0.0;
+        final opacity =
+            _ctrl.isAnimating ? (sin(_anim.value * pi)).clamp(0.0, 1.0) : 0.0;
         if (opacity <= 0) return const SizedBox.shrink();
         final pal = sectorPalette(_lastSector);
         return Positioned.fill(
-          child: IgnorePointer(child: Center(child: Opacity(
+          child: IgnorePointer(
+              child: Center(
+                  child: Opacity(
             opacity: opacity,
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
               decoration: BoxDecoration(
                 border: Border(
-                  top: BorderSide(color: pal.accentA.withOpacity(0.7), width: 1.5),
-                  bottom: BorderSide(color: pal.accentA.withOpacity(0.7), width: 1.5),
+                  top: BorderSide(
+                      color: pal.accentA.withOpacity(0.7), width: 1.5),
+                  bottom: BorderSide(
+                      color: pal.accentA.withOpacity(0.7), width: 1.5),
                 ),
                 gradient: LinearGradient(
-                  colors: [Colors.transparent, pal.nebulaColor.withOpacity(0.6), Colors.transparent],
+                  colors: [
+                    Colors.transparent,
+                    pal.nebulaColor.withOpacity(0.6),
+                    Colors.transparent
+                  ],
                   stops: const [0.0, 0.5, 1.0],
                 ),
               ),
               child: Column(mainAxisSize: MainAxisSize.min, children: [
-                Text('ENTERING', style: TextStyle(color: pal.accentB.withOpacity(0.8), fontSize: 10, letterSpacing: 6, fontWeight: FontWeight.w900)),
+                Text('ENTERING',
+                    style: GoogleFonts.rajdhani(
+                        color: pal.accentB.withOpacity(0.8),
+                        fontSize: 11,
+                        letterSpacing: 6,
+                        fontWeight: FontWeight.w900)),
                 const SizedBox(height: 4),
-                Text(pal.name, style: TextStyle(color: pal.accentA, fontSize: 24, letterSpacing: 3, fontWeight: FontWeight.w900)),
+                Text(pal.name,
+                    style: GoogleFonts.rajdhani(
+                        color: pal.accentA,
+                        fontSize: 28,
+                        letterSpacing: 3,
+                        fontWeight: FontWeight.w900)),
                 const SizedBox(height: 4),
-                Text('SECTOR $_lastSector', style: TextStyle(color: pal.accentA.withOpacity(0.6), fontSize: 12, letterSpacing: 4, fontWeight: FontWeight.w700)),
+                Text('SECTOR $_lastSector',
+                    style: GoogleFonts.rajdhani(
+                        color: pal.accentA.withOpacity(0.6),
+                        fontSize: 13,
+                        letterSpacing: 4,
+                        fontWeight: FontWeight.w700)),
               ]),
             ),
           ))),
@@ -417,17 +657,31 @@ class _PauseOverlay extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final pal = game.palette;
-    return Positioned.fill(child: Container(
+    return Positioned.fill(
+        child: Container(
       color: Colors.black.withOpacity(0.75),
-      child: Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
-        Text('◼ PAUSED', style: TextStyle(color: pal.accentA, fontSize: 36, fontWeight: FontWeight.w900, letterSpacing: 6)),
+      child: Center(
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+        Text('◼ PAUSED',
+            style: GoogleFonts.rajdhani(
+                color: pal.accentA,
+                fontSize: 40,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 6)),
         const SizedBox(height: 8),
-        Text(pal.name, style: TextStyle(color: pal.accentA.withOpacity(0.6), fontSize: 11, letterSpacing: 4)),
-        Text('SECTOR ${game.state.sector}', style: const TextStyle(color: AppTheme.textSecondary, fontSize: 10, letterSpacing: 3)),
+        Text(pal.name,
+            style: GoogleFonts.rajdhani(
+                color: pal.accentA.withOpacity(0.6),
+                fontSize: 12,
+                letterSpacing: 4)),
+        Text('SECTOR ${game.state.sector}',
+            style: GoogleFonts.rajdhani(
+                color: AppTheme.textSecondary, fontSize: 11, letterSpacing: 3)),
         const SizedBox(height: 40),
         _PauseBtn('▶  RESUME', pal.accentA, AppTheme.bg, game.pauseGame),
         const SizedBox(height: 12),
-        _PauseBtn('⏹  ABORT MISSION', AppTheme.card, AppTheme.textSecondary, onQuit),
+        _PauseBtn(
+            '⏹  ABORT MISSION', AppTheme.card, AppTheme.textSecondary, onQuit),
       ])),
     ));
   }
@@ -437,12 +691,22 @@ Widget _PauseBtn(String label, Color bg, Color fg, VoidCallback onTap) {
   return GestureDetector(
     onTap: onTap,
     child: Container(
-      width: 220, height: 52,
+      width: 220,
+      height: 52,
       decoration: BoxDecoration(
-        color: bg, borderRadius: BorderRadius.circular(8),
-        border: bg == AppTheme.card ? Border.all(color: AppTheme.cardBorder, width: 1.5) : null,
+        color: bg,
+        borderRadius: BorderRadius.circular(8),
+        border: bg == AppTheme.card
+            ? Border.all(color: AppTheme.cardBorder, width: 1.5)
+            : null,
       ),
-      child: Center(child: Text(label, style: TextStyle(color: fg, fontSize: 14, fontWeight: FontWeight.w900, letterSpacing: 2))),
+      child: Center(
+          child: Text(label,
+              style: GoogleFonts.rajdhani(
+                  color: fg,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 2))),
     ),
   );
 }
@@ -463,7 +727,7 @@ class _HUD extends StatelessWidget {
         Row(children: [
           _HUDBtn(icon: Icons.arrow_back_ios_new, onTap: onBack),
           const SizedBox(width: 10),
-          // Sector chip — sector-colored
+          // Sector chip
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
             decoration: BoxDecoration(
@@ -472,32 +736,55 @@ class _HUD extends StatelessWidget {
               border: Border.all(color: pal.accentA.withOpacity(0.5)),
             ),
             child: Row(mainAxisSize: MainAxisSize.min, children: [
-              Container(width: 6, height: 6, decoration: BoxDecoration(shape: BoxShape.circle, color: pal.accentA)),
+              Container(
+                  width: 6,
+                  height: 6,
+                  decoration: BoxDecoration(
+                      shape: BoxShape.circle, color: pal.accentA)),
               const SizedBox(width: 6),
-              Text('SECTOR ${game.state.sector}', style: TextStyle(color: pal.accentA, fontSize: 10, letterSpacing: 2, fontWeight: FontWeight.w900)),
+              Text('SEC.${game.state.sector}  ${pal.name}',
+                  style: GoogleFonts.rajdhani(
+                      color: pal.accentA,
+                      fontSize: 10,
+                      letterSpacing: 1.5,
+                      fontWeight: FontWeight.w900)),
             ]),
           ),
           const Spacer(),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            decoration: BoxDecoration(color: AppTheme.card.withOpacity(0.9), borderRadius: BorderRadius.circular(8), border: Border.all(color: AppTheme.cardBorder)),
-            child: Text(_formatScore(game.state.score), style: const TextStyle(color: AppTheme.textPrimary, fontSize: 20, fontWeight: FontWeight.w900, letterSpacing: 2)),
+            decoration: BoxDecoration(
+                color: AppTheme.card.withOpacity(0.9),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: AppTheme.cardBorder)),
+            child: Text(_formatScore(game.state.score),
+                style: GoogleFonts.rajdhani(
+                    color: AppTheme.textPrimary,
+                    fontSize: 22,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 2)),
           ),
           const Spacer(),
-          _HUDBtn(icon: game.state.isPaused ? Icons.play_arrow : Icons.pause, onTap: game.pauseGame),
+          _HUDBtn(
+              icon: game.state.isPaused ? Icons.play_arrow : Icons.pause,
+              onTap: game.pauseGame),
         ]),
 
         const SizedBox(height: 10),
 
-        // Lives + bombs + coins
+        // Lives + coins
         Row(children: [
-          Row(children: List.generate(5, (i) {
+          Row(
+              children: List.generate(5, (i) {
             if (i >= 3 && i >= game.state.lives) return const SizedBox.shrink();
             return Padding(
               padding: const EdgeInsets.only(right: 4),
               child: Icon(
-                i < game.state.lives ? Icons.favorite_rounded : Icons.favorite_border_rounded,
-                color: i < game.state.lives ? AppTheme.danger : AppTheme.textDim,
+                i < game.state.lives
+                    ? Icons.favorite_rounded
+                    : Icons.favorite_border_rounded,
+                color:
+                    i < game.state.lives ? AppTheme.danger : AppTheme.textDim,
                 size: 18,
               ),
             );
@@ -510,21 +797,33 @@ class _HUD extends StatelessWidget {
               decoration: BoxDecoration(
                 color: const Color(0xFFFF6B2B).withOpacity(0.12),
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const Color(0xFFFF6B2B).withOpacity(0.4)),
+                border:
+                    Border.all(color: const Color(0xFFFF6B2B).withOpacity(0.4)),
               ),
               child: Row(children: [
                 const Text('💥', style: TextStyle(fontSize: 10)),
                 const SizedBox(width: 4),
-                Text('×${game.state.bombs}', style: const TextStyle(color: Color(0xFFFF6B2B), fontWeight: FontWeight.w900, fontSize: 12)),
+                Text('×${game.state.bombs}',
+                    style: GoogleFonts.rajdhani(
+                        color: const Color(0xFFFF6B2B),
+                        fontWeight: FontWeight.w900,
+                        fontSize: 13)),
               ]),
             ),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            decoration: BoxDecoration(color: AppTheme.coinColor.withOpacity(0.12), borderRadius: BorderRadius.circular(20), border: Border.all(color: AppTheme.coinColor.withOpacity(0.3))),
+            decoration: BoxDecoration(
+                color: AppTheme.coinColor.withOpacity(0.12),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: AppTheme.coinColor.withOpacity(0.3))),
             child: Row(children: [
               const Icon(Icons.circle, color: AppTheme.coinColor, size: 8),
               const SizedBox(width: 5),
-              Text('${game.state.coins}', style: const TextStyle(color: AppTheme.coinColor, fontWeight: FontWeight.w800, fontSize: 13)),
+              Text('${game.state.coins}',
+                  style: GoogleFonts.rajdhani(
+                      color: AppTheme.coinColor,
+                      fontWeight: FontWeight.w800,
+                      fontSize: 13)),
             ]),
           ),
         ]),
@@ -534,11 +833,17 @@ class _HUD extends StatelessWidget {
           const SizedBox(height: 8),
           Row(children: [
             if (game.state.isShieldActive) ...[
-              _PowerBar(label: 'SHIELD', color: AppTheme.accentAlt, progress: game.state.shieldTimer / 6.0),
+              _PowerBar(
+                  label: 'SHIELD',
+                  color: AppTheme.accentAlt,
+                  progress: game.state.shieldTimer / 6.0),
               const SizedBox(width: 8),
             ],
             if (game.state.isSlowActive)
-              _PowerBar(label: 'SLOW', color: AppTheme.slowColor, progress: game.state.slowTimer / 5.0),
+              _PowerBar(
+                  label: 'SLOW',
+                  color: AppTheme.slowColor,
+                  progress: game.state.slowTimer / 5.0),
           ]),
         ],
 
@@ -552,7 +857,12 @@ class _HUD extends StatelessWidget {
               borderRadius: BorderRadius.circular(6),
               border: Border.all(color: AppTheme.coinColor.withOpacity(0.4)),
             ),
-            child: Text('✕${game.state.combo}  COMBO', style: const TextStyle(color: AppTheme.coinColor, fontWeight: FontWeight.w900, fontSize: 11, letterSpacing: 2)),
+            child: Text('✕${game.state.combo}  COMBO',
+                style: GoogleFonts.rajdhani(
+                    color: AppTheme.coinColor,
+                    fontWeight: FontWeight.w900,
+                    fontSize: 12,
+                    letterSpacing: 2)),
           ),
         ],
       ]),
@@ -575,8 +885,12 @@ class _HUDBtn extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        width: 36, height: 36,
-        decoration: BoxDecoration(color: AppTheme.card.withOpacity(0.85), borderRadius: BorderRadius.circular(8), border: Border.all(color: AppTheme.cardBorder)),
+        width: 36,
+        height: 36,
+        decoration: BoxDecoration(
+            color: AppTheme.card.withOpacity(0.85),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: AppTheme.cardBorder)),
         child: Icon(icon, color: AppTheme.textSecondary, size: 16),
       ),
     );
@@ -587,17 +901,34 @@ class _PowerBar extends StatelessWidget {
   final String label;
   final Color color;
   final double progress;
-  const _PowerBar({required this.label, required this.color, required this.progress});
+  const _PowerBar(
+      {required this.label, required this.color, required this.progress});
 
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(6), border: Border.all(color: color.withOpacity(0.4))),
+      decoration: BoxDecoration(
+          color: color.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(color: color.withOpacity(0.4))),
       child: Row(mainAxisSize: MainAxisSize.min, children: [
-        SizedBox(width: 44, height: 3, child: ClipRRect(borderRadius: BorderRadius.circular(2), child: LinearProgressIndicator(value: progress.clamp(0.0, 1.0), backgroundColor: AppTheme.bg, color: color))),
+        SizedBox(
+            width: 44,
+            height: 3,
+            child: ClipRRect(
+                borderRadius: BorderRadius.circular(2),
+                child: LinearProgressIndicator(
+                    value: progress.clamp(0.0, 1.0),
+                    backgroundColor: AppTheme.bg,
+                    color: color))),
         const SizedBox(width: 6),
-        Text(label, style: TextStyle(color: color, fontSize: 9, fontWeight: FontWeight.w900, letterSpacing: 1)),
+        Text(label,
+            style: GoogleFonts.rajdhani(
+                color: color,
+                fontSize: 9,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 1)),
       ]),
     );
   }

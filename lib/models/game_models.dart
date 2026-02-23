@@ -425,3 +425,73 @@ class RunState {
     this.weaponTimer = 0,
   });
 }
+
+// ── BOSS SHIP ─────────────────────────────────────────────────────────────────
+class BossShip {
+  double x;
+  double y;
+  double targetX;
+  double hp;
+  double maxHp;
+  double enterSpeed;
+  bool isActive;
+  bool isDead;
+  double deathTimer;
+  double fireTimer;
+  double fireRate;
+  double warningFlash;
+  double pulsePhase;
+
+  BossShip({
+    this.x = 0.5,
+    this.y = -0.35,
+    this.targetX = 0.5,
+    this.hp = 80,
+    this.maxHp = 80,
+    this.enterSpeed = 0.0004,
+    this.isActive = true,
+    this.isDead = false,
+    this.deathTimer = 0,
+    this.fireTimer = 3.0,
+    this.fireRate = 3.5,
+    this.warningFlash = 0,
+    this.pulsePhase = 0,
+  });
+
+  double get hpRatio => (hp / maxHp).clamp(0.0, 1.0);
+  bool get isFullyDead => isDead && deathTimer >= 1.0;
+  bool get isOnScreen => y > -0.25;
+}
+
+// ── BOSS MISSILE ──────────────────────────────────────────────────────────────
+class BossMissile {
+  double x, y;
+  double vx, vy;
+  bool active;
+  double life;
+  Color color;
+  BossMissile({
+    required this.x,
+    required this.y,
+    required this.vx,
+    required this.vy,
+    this.active = true,
+    this.life = 1.0,
+    this.color = const Color(0xFFFF2D55),
+  });
+}
+
+// ── RAMPAGE STATE ─────────────────────────────────────────────────────────────
+class RampageState {
+  bool isActive;
+  double timer;
+  double chargeLevel;
+  double flashPhase;
+
+  RampageState({
+    this.isActive = false,
+    this.timer = 0,
+    this.chargeLevel = 0,
+    this.flashPhase = 0,
+  });
+}

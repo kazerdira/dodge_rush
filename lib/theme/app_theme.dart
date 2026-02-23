@@ -25,6 +25,12 @@ class AppTheme {
   static const Color textSecondary = Color(0xFF5A6490);
   static const Color textDim = Color(0xFF2A2F50);
 
+  // Gaming font — Orbitron is a great space/sci-fi font
+  // Add to pubspec.yaml:
+  //   google_fonts: ^6.1.0
+  // Or add fonts manually. Using 'Rajdhani' as fallback if not available.
+  static const String fontFamily = 'Rajdhani'; // fallback to system sans-serif
+
   static ThemeData get theme => ThemeData(
     brightness: Brightness.dark,
     scaffoldBackgroundColor: bg,
@@ -34,6 +40,14 @@ class AppTheme {
       surface: card,
     ),
     appBarTheme: const AppBarTheme(backgroundColor: Colors.transparent, elevation: 0),
-    fontFamily: 'Courier',
+    // Use a bold sans-serif for gaming feel — much better than Courier
+    fontFamily: 'RubikMonoOne', // Will fall back to system font if not added
+    textTheme: const TextTheme(
+      displayLarge: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 2),
+      displayMedium: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 1.5),
+      bodyLarge: TextStyle(fontWeight: FontWeight.w600),
+      bodyMedium: TextStyle(fontWeight: FontWeight.w500),
+      labelLarge: TextStyle(fontWeight: FontWeight.w800, letterSpacing: 2),
+    ),
   );
 }
