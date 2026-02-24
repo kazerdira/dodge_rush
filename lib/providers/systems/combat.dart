@@ -305,21 +305,22 @@ extension CombatSystem on GameProvider {
               final beamX = obs.sweepFromLeft
                   ? obs.sweepProgress
                   : (1.0 - obs.sweepProgress);
-              const beamW = 0.055;
-              hit = (beamX - px).abs() < beamW + pw &&
+              const beamW = 0.032; // halved — was 0.055
+              hit = (beamX - px).abs() < beamW &&
                   py + ph / 2 > obs.y &&
                   py - ph / 2 < obs.y + obs.height;
             }
             break;
           case ObstacleType.pulseGate:
             final openness = (sin(obs.pulsePhase) + 1) / 2;
-            final halfGap = obs.gapHalfWidth * max(openness, 0.08);
+            final halfGap = obs.gapHalfWidth * max(openness, 0.05);
             final distFromCenter = (px - obs.gapCenterX).abs();
             final inGapZone =
                 py + ph / 2 > obs.y && py - ph / 2 < obs.y + obs.height;
+            // Only lethal when gate is nearly closed AND player is in wall zone
             hit = inGapZone &&
-                distFromCenter > halfGap + pw * 0.4 &&
-                openness < 0.15;
+                distFromCenter > halfGap + pw * 0.5 &&
+                openness < 0.08; // was 0.15 — more forgiving
             break;
         }
         if (hit) {

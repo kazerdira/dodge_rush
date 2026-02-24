@@ -29,12 +29,17 @@ void drawLaserWall(Canvas canvas, Size size, Obstacle obs, double animTick) {
   // ── DEATH EXPLOSION ──────────────────────────────────────────────────────
   if (obs.isDying) {
     final t = obs.deathTimer;
-    paint.maskFilter = MaskFilter.blur(BlurStyle.normal, 20 * (1 - t));
+    paint.maskFilter =
+        MaskFilter.blur(BlurStyle.normal, (20 * (1 - t)).clamp(0.1, 20.0));
     paint.color = effectiveColor.o(((1.0 - t) * 0.85).clamp(0.0, 0.9999));
     canvas.drawRect(rect.inflate(6 * (1 - t)), paint);
     paint.maskFilter = null;
 
-    final debrisCount = tier == WallTier.armored ? 10 : tier == WallTier.reinforced ? 6 : 4;
+    final debrisCount = tier == WallTier.armored
+        ? 10
+        : tier == WallTier.reinforced
+            ? 6
+            : 4;
     for (int i = 0; i < debrisCount; i++) {
       final dx = sin(i * 1.7 + t * 10) * 38 * t;
       final dy = -55 * t * (0.5 + i * 0.18) + sin(i * 2.3) * 18 * t;
@@ -63,14 +68,16 @@ void drawLaserWall(Canvas canvas, Size size, Obstacle obs, double animTick) {
     paint.maskFilter = const MaskFilter.blur(BlurStyle.normal, 4);
     paint.color = effectiveGlow.o((0.85 * opacity).clamp(0.0, 0.9999));
     canvas.drawRect(
-      Rect.fromLTWH(rect.left, rect.top + rect.height * 0.36, rect.width, rect.height * 0.28),
+      Rect.fromLTWH(rect.left, rect.top + rect.height * 0.36, rect.width,
+          rect.height * 0.28),
       paint,
     );
     paint.maskFilter = null;
     // Crisp white core
     paint.color = Colors.white.o((0.9 * opacity).clamp(0.0, 0.9999));
     canvas.drawRect(
-      Rect.fromLTWH(rect.left, rect.top + rect.height * 0.43, rect.width, rect.height * 0.14),
+      Rect.fromLTWH(rect.left, rect.top + rect.height * 0.43, rect.width,
+          rect.height * 0.14),
       paint,
     );
 
@@ -103,8 +110,9 @@ void drawLaserWall(Canvas canvas, Size size, Obstacle obs, double animTick) {
     if (obs.damageState != DamageState.healthy) {
       paint.style = PaintingStyle.stroke;
       paint.strokeWidth = 1.2;
-      paint.color = Colors.orange
-          .o((obs.damageState == DamageState.critical ? 0.65 : 0.30).clamp(0.0, 0.9999));
+      paint.color = Colors.orange.o(
+          (obs.damageState == DamageState.critical ? 0.65 : 0.30)
+              .clamp(0.0, 0.9999));
       final crackPath = Path();
       for (int i = 0; i < 3; i++) {
         final sx = rect.left + rect.width * (0.2 + i * 0.25);
@@ -118,7 +126,10 @@ void drawLaserWall(Canvas canvas, Size size, Obstacle obs, double animTick) {
 
     // Plasma channel — single controlled glow in the channel, not the housing
     final innerRect = Rect.fromLTWH(
-      rect.left, rect.top + rect.height * 0.30, rect.width, rect.height * 0.40,
+      rect.left,
+      rect.top + rect.height * 0.30,
+      rect.width,
+      rect.height * 0.40,
     );
     // Glow halo — one blur pass
     paint.maskFilter = const MaskFilter.blur(BlurStyle.normal, 6);
@@ -141,7 +152,8 @@ void drawLaserWall(Canvas canvas, Size size, Obstacle obs, double animTick) {
 
     // Emitter nodes — small lit dots, no bloom
     final nodePhase = (animTick * 4) % (pi * 2);
-    paint.color = Colors.white.o(((0.4 + sin(nodePhase) * 0.4) * opacity).clamp(0.0, 0.9999));
+    paint.color = Colors.white
+        .o(((0.4 + sin(nodePhase) * 0.4) * opacity).clamp(0.0, 0.9999));
     for (double x = rect.left + 12; x < rect.right; x += 48) {
       canvas.drawCircle(Offset(x, rect.center.dy), 2.5, paint);
     }
@@ -154,7 +166,11 @@ void drawLaserWall(Canvas canvas, Size size, Obstacle obs, double animTick) {
   if (tier == WallTier.reinforced) {
     // Thick dark hull — subtle top-lit gradient
     paint.shader = LinearGradient(
-      colors: [const Color(0xFF2E1600), const Color(0xFF140900), const Color(0xFF060300)],
+      colors: [
+        const Color(0xFF2E1600),
+        const Color(0xFF140900),
+        const Color(0xFF060300)
+      ],
       begin: Alignment.topLeft,
       end: Alignment.bottomRight,
     ).createShader(rect);
@@ -183,7 +199,10 @@ void drawLaserWall(Canvas canvas, Size size, Obstacle obs, double animTick) {
 
     // Orange energy channel
     final channelRect = Rect.fromLTWH(
-      rect.left, rect.top + rect.height * 0.26, rect.width, rect.height * 0.48,
+      rect.left,
+      rect.top + rect.height * 0.26,
+      rect.width,
+      rect.height * 0.48,
     );
     paint.maskFilter = const MaskFilter.blur(BlurStyle.normal, 8);
     paint.color = effectiveColor.o((0.65 * opacity).clamp(0.0, 0.9999));
@@ -213,10 +232,13 @@ void drawLaserWall(Canvas canvas, Size size, Obstacle obs, double animTick) {
     if (obs.damageState != DamageState.healthy) {
       paint.style = PaintingStyle.stroke;
       paint.strokeWidth = 2.0;
-      paint.color = Colors.red
-          .o((obs.damageState == DamageState.critical ? 0.85 : 0.40).clamp(0.0, 0.9999));
+      paint.color = Colors.red.o(
+          (obs.damageState == DamageState.critical ? 0.85 : 0.40)
+              .clamp(0.0, 0.9999));
       final rng = Random(obs.hashCode);
-      for (int i = 0; i < (obs.damageState == DamageState.critical ? 5 : 2); i++) {
+      for (int i = 0;
+          i < (obs.damageState == DamageState.critical ? 5 : 2);
+          i++) {
         final sx = rect.left + rng.nextDouble() * rect.width;
         final crackPath = Path()
           ..moveTo(sx, rect.top)
@@ -235,7 +257,11 @@ void drawLaserWall(Canvas canvas, Size size, Obstacle obs, double animTick) {
   if (tier == WallTier.armored) {
     // Deep hull — violet-dark
     paint.shader = LinearGradient(
-      colors: [const Color(0xFF180020), const Color(0xFF0C0012), const Color(0xFF050008)],
+      colors: [
+        const Color(0xFF180020),
+        const Color(0xFF0C0012),
+        const Color(0xFF050008)
+      ],
       begin: Alignment.topLeft,
       end: Alignment.bottomRight,
     ).createShader(rect);
@@ -261,18 +287,23 @@ void drawLaserWall(Canvas canvas, Size size, Obstacle obs, double animTick) {
     for (int ch = 0; ch < 3; ch++) {
       final yFrac = 0.18 + ch * 0.24;
       final chR = Rect.fromLTWH(
-        rect.left, rect.top + rect.height * yFrac, rect.width, rect.height * 0.14,
+        rect.left,
+        rect.top + rect.height * yFrac,
+        rect.width,
+        rect.height * 0.14,
       );
       // Single glow per channel
       paint.maskFilter = MaskFilter.blur(BlurStyle.normal, 4 + ch * 2.0);
-      paint.color = effectiveColor.o(((0.45 + ch * 0.12) * opacity).clamp(0.0, 0.9999));
+      paint.color =
+          effectiveColor.o(((0.45 + ch * 0.12) * opacity).clamp(0.0, 0.9999));
       canvas.drawRect(chR, paint);
       paint.maskFilter = null;
       // White-hot core on middle channel
       if (ch == 1) {
         paint.color = Colors.white.o((0.85 * opacity).clamp(0.0, 0.9999));
         canvas.drawRect(
-          Rect.fromLTWH(rect.left, chR.top + chR.height * 0.30, rect.width, chR.height * 0.40),
+          Rect.fromLTWH(rect.left, chR.top + chR.height * 0.30, rect.width,
+              chR.height * 0.40),
           paint,
         );
       }
@@ -288,9 +319,16 @@ void drawLaserWall(Canvas canvas, Size size, Obstacle obs, double animTick) {
     paint.color = Colors.grey.shade500.o((opacity).clamp(0.0, 0.9999));
     paint.strokeWidth = 2.2;
     const bSize = 7.0;
-    for (final corner in [rect.topLeft, rect.topRight, rect.bottomLeft, rect.bottomRight]) {
-      final sx = (corner == rect.topLeft || corner == rect.bottomLeft) ? 1.0 : -1.0;
-      final sy = (corner == rect.topLeft || corner == rect.topRight) ? 1.0 : -1.0;
+    for (final corner in [
+      rect.topLeft,
+      rect.topRight,
+      rect.bottomLeft,
+      rect.bottomRight
+    ]) {
+      final sx =
+          (corner == rect.topLeft || corner == rect.bottomLeft) ? 1.0 : -1.0;
+      final sy =
+          (corner == rect.topLeft || corner == rect.topRight) ? 1.0 : -1.0;
       canvas.drawLine(corner, corner + Offset(sx * bSize, 0), paint);
       canvas.drawLine(corner, corner + Offset(0, sy * bSize), paint);
     }
@@ -298,7 +336,8 @@ void drawLaserWall(Canvas canvas, Size size, Obstacle obs, double animTick) {
 
     // Critical damage crumble
     if (obs.damageState == DamageState.critical) {
-      paint.color = Colors.white.o((0.12 * (0.5 + sin(animTick * 18) * 0.5)).clamp(0.0, 0.9999));
+      paint.color = Colors.white
+          .o((0.12 * (0.5 + sin(animTick * 18) * 0.5)).clamp(0.0, 0.9999));
       canvas.drawRect(rect, paint);
       final rng = Random(obs.hashCode);
       paint.color = AppTheme.bg;
@@ -323,14 +362,16 @@ void drawLaserWall(Canvas canvas, Size size, Obstacle obs, double animTick) {
       textDirection: TextDirection.ltr,
     );
     tp.layout();
-    tp.paint(canvas, Offset(rect.left + 4, rect.top + (rect.height - tp.height) / 2));
+    tp.paint(canvas,
+        Offset(rect.left + 4, rect.top + (rect.height - tp.height) / 2));
 
     _drawHpBar(canvas, rect, obs, effectiveColor, opacity);
   }
 }
 
 /// HP bar drawn below each wall.
-void _drawHpBar(Canvas canvas, Rect wallRect, Obstacle obs, Color color, double opacity) {
+void _drawHpBar(
+    Canvas canvas, Rect wallRect, Obstacle obs, Color color, double opacity) {
   if (obs.maxHp <= 1) return;
   final ratio = (obs.hp / obs.maxHp).clamp(0.0, 1.0);
   const barH = 3.0;
@@ -339,7 +380,8 @@ void _drawHpBar(Canvas canvas, Rect wallRect, Obstacle obs, Color color, double 
   final paint = Paint()..style = PaintingStyle.fill;
   // Background
   paint.color = Colors.black.o((0.55).clamp(0.0, 0.9999));
-  canvas.drawRect(Rect.fromLTWH(wallRect.left, barY, wallRect.width, barH), paint);
+  canvas.drawRect(
+      Rect.fromLTWH(wallRect.left, barY, wallRect.width, barH), paint);
   // Fill
   final barColor = Color.lerp(Colors.red, color, ratio)!;
   paint.color = barColor.o((opacity).clamp(0.0, 0.9999));

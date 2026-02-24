@@ -24,16 +24,14 @@ void drawBossShip(
   // but we clamp defensively.
   final pulse = (sin(boss.pulsePhase) * 0.5 + 0.5).clamp(0.0, 1.0);
 
-  double scl = 1.0;
   double opacity = 1.0;
   if (boss.isDead) {
-    scl = 1.0 + boss.deathTimer * 2.2;
-    opacity = (1.0 - boss.deathTimer).clamp(0.0, 1.0);
+    opacity = (1.0 - boss.deathTimer * 1.5).clamp(0.0, 1.0);
   }
 
   canvas.save();
   canvas.translate(cx, cy);
-  canvas.scale(scl);
+  // No scale on death — was causing huge draw calls and lag
 
   final w = size.width * 0.20;
   final h = size.height * 0.10;

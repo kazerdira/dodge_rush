@@ -142,7 +142,7 @@ class GameProvider extends ChangeNotifier {
     }
     // Each sector reduces interval by 0.08 (more walls)
     base -= (state.sector - 1) * 0.08;
-    return base.clamp(0.55, 2.2);
+    return base.clamp(0.80, 2.2);
   }
 
   // ── SLOW MODE AWARENESS ───────────────────────────────────────────────────
@@ -385,7 +385,7 @@ class GameProvider extends ChangeNotifier {
     // This keeps the game playable through sector 3-4 for new players.
     final sectorSpeedBase = 1.0 + (state.sector - 1) * 0.15;
     final diffSpeed = state.difficulty * 0.18;
-    state.speed = (sectorSpeedBase + diffSpeed).clamp(1.0, 2.5);
+    state.speed = (sectorSpeedBase + diffSpeed).clamp(1.0, 1.9);
 
     // Near-death slow: if 1 life left, brief bullet-time on close calls
     if (nearDeathSlowTimer > 0) nearDeathSlowTimer -= _tickRate;
@@ -432,10 +432,10 @@ class GameProvider extends ChangeNotifier {
     _timeSinceLastBoss += _tickRate;
     final bossFullyGone = boss == null || boss!.isFullyDead;
     final firstSpawnReady =
-        state.sector >= 3 && !bossSpawned && _gameTime > 55.0;
+        state.sector >= 2 && !bossSpawned && _gameTime > 40.0;
     final respawnReady = bossFullyGone &&
         bossKillCount > 0 &&
-        state.sector >= 3 &&
+        state.sector >= 2 &&
         _timeSinceLastBoss > _bossRespawnInterval;
 
     if (firstSpawnReady || respawnReady) {
@@ -448,7 +448,7 @@ class GameProvider extends ChangeNotifier {
       boss = BossShip(
         hp: hpScale,
         maxHp: hpScale,
-        fireRate: rateScale,
+        fireRate: bossKillCount >= 1 ? max(0.9, rateScale - 0.3) : rateScale,
         fireTimer: 4.0,
       );
       final msg = bossKillCount == 0
@@ -482,8 +482,8 @@ class GameProvider extends ChangeNotifier {
           _timeSinceLastBoss = 0; // reset respawn timer
           shakeIntensity = 12.0;
           rampage.chargeLevel = 1.0;
-          // Reduced to 16 particles — enough visual impact, no lag spike
-          for (int i = 0; i < 16; i++) {
+          // Reduced to 8 particles — enough visual impact, no lag spike
+          for (int i = 0; i < 8; i++) {
             final a = _rng.nextDouble() * 2 * pi;
             final spd = 0.008 + _rng.nextDouble() * 0.022;
             const cols = [
@@ -526,7 +526,7 @@ class GameProvider extends ChangeNotifier {
           onRewardCollected?.call(reward);
         }
       } else {
-        boss!.deathTimer += _tickRate * 0.8;
+        boss!.deathTimer += _tickRate * 1.8; // dies faster = less lag frames
       }
 
       // Move missiles

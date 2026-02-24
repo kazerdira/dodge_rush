@@ -69,11 +69,7 @@ class GamePainter extends CustomPainter {
     final paint = Paint()..style = PaintingStyle.fill;
     void neb(Offset center, double radius, Color col, double op) {
       paint.shader = RadialGradient(
-        colors: [
-          col.o(op),
-          col.o(op * 0.35),
-          Colors.transparent
-        ],
+        colors: [col.o(op), col.o(op * 0.35), Colors.transparent],
         stops: const [0.0, 0.55, 1.0],
       ).createShader(Rect.fromCircle(center: center, radius: radius));
       canvas.drawCircle(center, radius, paint);
@@ -338,8 +334,8 @@ class GamePainter extends CustomPainter {
     }
 
     if (obs.damageState != DamageState.healthy) {
-      paint.color = Colors.white
-          .o(obs.damageState == DamageState.critical ? 0.5 : 0.25);
+      paint.color =
+          Colors.white.o(obs.damageState == DamageState.critical ? 0.5 : 0.25);
       paint.style = PaintingStyle.stroke;
       paint.strokeWidth = obs.damageState == DamageState.critical ? 1.5 : 0.8;
       final rng = Random(obs.shape.length);
@@ -579,7 +575,7 @@ class GamePainter extends CustomPainter {
           final angle = p['angle'] as double? ?? 0.0;
           final aspect = p['aspect'] as double? ?? 0.22;
           final w = pSize;
-          final h = (pSize * aspect).clamp(0.6, w);
+          final h = (pSize * aspect).clamp(w < 0.6 ? w : 0.6, w);
           canvas.save();
           canvas.translate(px, py);
           canvas.rotate(angle);
@@ -604,7 +600,8 @@ class GamePainter extends CustomPainter {
           final angle = p['angle'] as double? ?? 0.0;
           final aspect = p['aspect'] as double? ?? 0.65;
           final w = pSize;
-          final h = (pSize * aspect).clamp(1.0, w * 1.2);
+          final upper = w * 1.2;
+          final h = (pSize * aspect).clamp(upper < 1.0 ? upper : 1.0, upper);
           canvas.save();
           canvas.translate(px, py);
           canvas.rotate(angle);
@@ -643,8 +640,8 @@ class GamePainter extends CustomPainter {
     final r = p.size.toDouble() * 1.44; // 20% bigger than original 1.2
     final color = p.color;
     // Use gentle rotation instead of skew — skew causes the "shaking" bug
-    final rawLean = p.velocityX * 18;
-    final lean = rawLean.abs() < 1.0 ? 0.0 : rawLean.clamp(-12.0, 12.0);
+    final rawLean = p.velocityX * 12; // reduced multiplier
+    final lean = rawLean.clamp(-8.0, 8.0); // no dead zone causing jump
 
     canvas.save();
     canvas.translate(cx, cy);
