@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../utils/safe_color.dart';
 import 'ship_painter_helpers.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -80,7 +81,7 @@ void drawInfernoShip(Canvas canvas, double r, Color color, double animTick) {
     // Top edge rim light
     paint.style = PaintingStyle.stroke;
     paint.strokeWidth = 1.0;
-    paint.color = const Color(0xFF886644).withOpacity(side < 0 ? 0.7 : 0.3);
+    paint.color = const Color(0xFF886644).o(side < 0 ? 0.7 : 0.3);
     canvas.drawLine(Offset(s * r * 0.65, -r * 0.18), Offset(s * r * 1.38, -r * 0.52), paint);
     paint.style = PaintingStyle.fill;
   }
@@ -132,7 +133,7 @@ void drawInfernoShip(Canvas canvas, double r, Color color, double animTick) {
     paint,
   );
   paint.maskFilter = const MaskFilter.blur(BlurStyle.normal, 5);
-  paint.color = color.withOpacity(0.65);
+  paint.color = color.o(0.65);
   canvas.drawRRect(
     RRect.fromRectAndRadius(
       Rect.fromCenter(center: Offset(0, r * 0.25), width: r * 0.36, height: r * 0.12),
@@ -147,7 +148,7 @@ void drawInfernoShip(Canvas canvas, double r, Color color, double animTick) {
   canvas.drawRect(Rect.fromLTWH(-r * 0.28, -r * 0.82, r * 0.56, r * 0.14), paint);
   // Thin amber glow line inside the slit — not blasting white
   paint.maskFilter = const MaskFilter.blur(BlurStyle.normal, 2);
-  paint.color = const Color(0xFFCC8800).withOpacity(0.9);
+  paint.color = const Color(0xFFCC8800).o(0.9);
   canvas.drawRect(Rect.fromLTWH(-r * 0.22, -r * 0.78, r * 0.44, r * 0.06), paint);
   paint.maskFilter = null;
 

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'dart:math';
 import '../../models/game_models.dart';
 import '../../theme/app_theme.dart';
+import '../../utils/safe_color.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // WALL PAINTER — Grounded, tier-specific laser walls
@@ -29,7 +30,7 @@ void drawLaserWall(Canvas canvas, Size size, Obstacle obs, double animTick) {
   if (obs.isDying) {
     final t = obs.deathTimer;
     paint.maskFilter = MaskFilter.blur(BlurStyle.normal, 20 * (1 - t));
-    paint.color = effectiveColor.withOpacity((1.0 - t) * 0.85);
+    paint.color = effectiveColor.o(((1.0 - t) * 0.85).clamp(0.0, 0.9999));
     canvas.drawRect(rect.inflate(6 * (1 - t)), paint);
     paint.maskFilter = null;
 
@@ -39,7 +40,7 @@ void drawLaserWall(Canvas canvas, Size size, Obstacle obs, double animTick) {
       final dy = -55 * t * (0.5 + i * 0.18) + sin(i * 2.3) * 18 * t;
       final chunkW = rect.width * (0.05 + (i % 3) * 0.04) * (1 - t);
       final chunkH = rect.height * (0.75 + sin(i) * 0.2) * (1 - t);
-      paint.color = effectiveColor.withOpacity((1.0 - t) * 0.75);
+      paint.color = effectiveColor.o(((1.0 - t) * 0.75).clamp(0.0, 0.9999));
       canvas.save();
       canvas.translate(rect.center.dx + dx, rect.center.dy + dy);
       canvas.rotate(t * i * 1.8);
@@ -55,19 +56,19 @@ void drawLaserWall(Canvas canvas, Size size, Obstacle obs, double animTick) {
   // ── FRAGILE: Thin glass panel ─────────────────────────────────────────────
   if (tier == WallTier.fragile) {
     // Glass body — barely visible
-    paint.color = effectiveColor.withOpacity(0.12 * opacity);
+    paint.color = effectiveColor.o((0.12 * opacity).clamp(0.0, 0.9999));
     canvas.drawRect(rect, paint);
 
     // Hot wire centre — ONE glow
     paint.maskFilter = const MaskFilter.blur(BlurStyle.normal, 4);
-    paint.color = effectiveGlow.withOpacity(0.85 * opacity);
+    paint.color = effectiveGlow.o((0.85 * opacity).clamp(0.0, 0.9999));
     canvas.drawRect(
       Rect.fromLTWH(rect.left, rect.top + rect.height * 0.36, rect.width, rect.height * 0.28),
       paint,
     );
     paint.maskFilter = null;
     // Crisp white core
-    paint.color = Colors.white.withOpacity(0.9 * opacity);
+    paint.color = Colors.white.o((0.9 * opacity).clamp(0.0, 0.9999));
     canvas.drawRect(
       Rect.fromLTWH(rect.left, rect.top + rect.height * 0.43, rect.width, rect.height * 0.14),
       paint,
@@ -91,7 +92,7 @@ void drawLaserWall(Canvas canvas, Size size, Obstacle obs, double animTick) {
     // Panel seams — engraved dark lines
     paint.style = PaintingStyle.stroke;
     paint.strokeWidth = 0.8;
-    paint.color = const Color(0xFF0A0A12).withOpacity(opacity);
+    paint.color = const Color(0xFF0A0A12).o((opacity).clamp(0.0, 0.9999));
     canvas.drawRect(rect, paint);
     for (double x = rect.left + 24; x < rect.right; x += 48) {
       canvas.drawLine(Offset(x, rect.top), Offset(x, rect.bottom), paint);
@@ -103,7 +104,7 @@ void drawLaserWall(Canvas canvas, Size size, Obstacle obs, double animTick) {
       paint.style = PaintingStyle.stroke;
       paint.strokeWidth = 1.2;
       paint.color = Colors.orange
-          .withOpacity(obs.damageState == DamageState.critical ? 0.65 : 0.30);
+          .o((obs.damageState == DamageState.critical ? 0.65 : 0.30).clamp(0.0, 0.9999));
       final crackPath = Path();
       for (int i = 0; i < 3; i++) {
         final sx = rect.left + rect.width * (0.2 + i * 0.25);
@@ -121,15 +122,15 @@ void drawLaserWall(Canvas canvas, Size size, Obstacle obs, double animTick) {
     );
     // Glow halo — one blur pass
     paint.maskFilter = const MaskFilter.blur(BlurStyle.normal, 6);
-    paint.color = effectiveColor.withOpacity(0.5 * opacity);
+    paint.color = effectiveColor.o((0.5 * opacity).clamp(0.0, 0.9999));
     canvas.drawRect(innerRect, paint);
     paint.maskFilter = null;
     // Crisp channel fill
     paint.shader = LinearGradient(
       colors: [
-        Colors.white.withOpacity(0.9 * opacity),
-        effectiveColor.withOpacity(opacity),
-        effectiveColor.withOpacity(0.35 * opacity),
+        Colors.white.o((0.9 * opacity).clamp(0.0, 0.9999)),
+        effectiveColor.o((opacity).clamp(0.0, 0.9999)),
+        effectiveColor.o((0.35 * opacity).clamp(0.0, 0.9999)),
       ],
       stops: const [0.0, 0.4, 1.0],
       begin: Alignment.topCenter,
@@ -140,7 +141,7 @@ void drawLaserWall(Canvas canvas, Size size, Obstacle obs, double animTick) {
 
     // Emitter nodes — small lit dots, no bloom
     final nodePhase = (animTick * 4) % (pi * 2);
-    paint.color = Colors.white.withOpacity((0.4 + sin(nodePhase) * 0.4) * opacity);
+    paint.color = Colors.white.o(((0.4 + sin(nodePhase) * 0.4) * opacity).clamp(0.0, 0.9999));
     for (double x = rect.left + 12; x < rect.right; x += 48) {
       canvas.drawCircle(Offset(x, rect.center.dy), 2.5, paint);
     }
@@ -163,21 +164,21 @@ void drawLaserWall(Canvas canvas, Size size, Obstacle obs, double animTick) {
     // Armour segments
     paint.style = PaintingStyle.stroke;
     paint.strokeWidth = 1.0;
-    paint.color = const Color(0xFF0A0500).withOpacity(opacity);
+    paint.color = const Color(0xFF0A0500).o((opacity).clamp(0.0, 0.9999));
     for (double x = rect.left + 28; x < rect.right; x += 28) {
       canvas.drawLine(Offset(x, rect.top), Offset(x, rect.bottom), paint);
     }
     paint.style = PaintingStyle.fill;
 
     // Rivets
-    paint.color = const Color(0xFF4A3018).withOpacity(opacity);
+    paint.color = const Color(0xFF4A3018).o((opacity).clamp(0.0, 0.9999));
     for (double x = rect.left + 14; x < rect.right; x += 28) {
       canvas.drawCircle(Offset(x, rect.top + 4), 2.2, paint);
       canvas.drawCircle(Offset(x, rect.bottom - 4), 2.2, paint);
       // Rivet highlight
-      paint.color = Colors.white.withOpacity(0.15 * opacity);
+      paint.color = Colors.white.o((0.15 * opacity).clamp(0.0, 0.9999));
       canvas.drawCircle(Offset(x - 0.8, rect.top + 3.2), 1.0, paint);
-      paint.color = const Color(0xFF4A3018).withOpacity(opacity);
+      paint.color = const Color(0xFF4A3018).o((opacity).clamp(0.0, 0.9999));
     }
 
     // Orange energy channel
@@ -185,14 +186,14 @@ void drawLaserWall(Canvas canvas, Size size, Obstacle obs, double animTick) {
       rect.left, rect.top + rect.height * 0.26, rect.width, rect.height * 0.48,
     );
     paint.maskFilter = const MaskFilter.blur(BlurStyle.normal, 8);
-    paint.color = effectiveColor.withOpacity(0.65 * opacity);
+    paint.color = effectiveColor.o((0.65 * opacity).clamp(0.0, 0.9999));
     canvas.drawRect(channelRect, paint);
     paint.maskFilter = null;
     paint.shader = LinearGradient(
       colors: [
-        Colors.white.withOpacity(0.85 * opacity),
-        effectiveColor.withOpacity(opacity),
-        const Color(0xFF3A1000).withOpacity(opacity),
+        Colors.white.o((0.85 * opacity).clamp(0.0, 0.9999)),
+        effectiveColor.o((opacity).clamp(0.0, 0.9999)),
+        const Color(0xFF3A1000).o((opacity).clamp(0.0, 0.9999)),
       ],
       stops: const [0.0, 0.35, 1.0],
       begin: Alignment.topCenter,
@@ -204,7 +205,7 @@ void drawLaserWall(Canvas canvas, Size size, Obstacle obs, double animTick) {
     // Heavy frame outline
     paint.style = PaintingStyle.stroke;
     paint.strokeWidth = 2.5;
-    paint.color = const Color(0xFF3A1800).withOpacity(opacity);
+    paint.color = const Color(0xFF3A1800).o((opacity).clamp(0.0, 0.9999));
     canvas.drawRect(rect, paint);
     paint.style = PaintingStyle.fill;
 
@@ -213,7 +214,7 @@ void drawLaserWall(Canvas canvas, Size size, Obstacle obs, double animTick) {
       paint.style = PaintingStyle.stroke;
       paint.strokeWidth = 2.0;
       paint.color = Colors.red
-          .withOpacity(obs.damageState == DamageState.critical ? 0.85 : 0.40);
+          .o((obs.damageState == DamageState.critical ? 0.85 : 0.40).clamp(0.0, 0.9999));
       final rng = Random(obs.hashCode);
       for (int i = 0; i < (obs.damageState == DamageState.critical ? 5 : 2); i++) {
         final sx = rect.left + rng.nextDouble() * rect.width;
@@ -244,13 +245,13 @@ void drawLaserWall(Canvas canvas, Size size, Obstacle obs, double animTick) {
     // Armour segments — thick bolted plates
     paint.style = PaintingStyle.stroke;
     paint.strokeWidth = 1.8;
-    paint.color = const Color(0xFF220030).withOpacity(opacity);
+    paint.color = const Color(0xFF220030).o((opacity).clamp(0.0, 0.9999));
     for (double x = rect.left + 30; x < rect.right; x += 30) {
       canvas.drawLine(Offset(x, rect.top), Offset(x, rect.bottom), paint);
     }
     // Heavy bolts at corners of each segment
     paint.style = PaintingStyle.fill;
-    paint.color = const Color(0xFF3A2050).withOpacity(opacity);
+    paint.color = const Color(0xFF3A2050).o((opacity).clamp(0.0, 0.9999));
     for (double x = rect.left + 15; x < rect.right; x += 30) {
       canvas.drawCircle(Offset(x, rect.top + 5), 2.5, paint);
       canvas.drawCircle(Offset(x, rect.bottom - 5), 2.5, paint);
@@ -264,12 +265,12 @@ void drawLaserWall(Canvas canvas, Size size, Obstacle obs, double animTick) {
       );
       // Single glow per channel
       paint.maskFilter = MaskFilter.blur(BlurStyle.normal, 4 + ch * 2.0);
-      paint.color = effectiveColor.withOpacity((0.45 + ch * 0.12) * opacity);
+      paint.color = effectiveColor.o(((0.45 + ch * 0.12) * opacity).clamp(0.0, 0.9999));
       canvas.drawRect(chR, paint);
       paint.maskFilter = null;
       // White-hot core on middle channel
       if (ch == 1) {
-        paint.color = Colors.white.withOpacity(0.85 * opacity);
+        paint.color = Colors.white.o((0.85 * opacity).clamp(0.0, 0.9999));
         canvas.drawRect(
           Rect.fromLTWH(rect.left, chR.top + chR.height * 0.30, rect.width, chR.height * 0.40),
           paint,
@@ -280,11 +281,11 @@ void drawLaserWall(Canvas canvas, Size size, Obstacle obs, double animTick) {
     // Heavy frame
     paint.style = PaintingStyle.stroke;
     paint.strokeWidth = 3.5;
-    paint.color = const Color(0xFF3A0050).withOpacity(opacity);
+    paint.color = const Color(0xFF3A0050).o((opacity).clamp(0.0, 0.9999));
     canvas.drawRect(rect, paint);
 
     // Corner brackets — structural steel
-    paint.color = Colors.grey.shade500.withOpacity(opacity);
+    paint.color = Colors.grey.shade500.o((opacity).clamp(0.0, 0.9999));
     paint.strokeWidth = 2.2;
     const bSize = 7.0;
     for (final corner in [rect.topLeft, rect.topRight, rect.bottomLeft, rect.bottomRight]) {
@@ -297,7 +298,7 @@ void drawLaserWall(Canvas canvas, Size size, Obstacle obs, double animTick) {
 
     // Critical damage crumble
     if (obs.damageState == DamageState.critical) {
-      paint.color = Colors.white.withOpacity(0.12 * (0.5 + sin(animTick * 18) * 0.5));
+      paint.color = Colors.white.o((0.12 * (0.5 + sin(animTick * 18) * 0.5)).clamp(0.0, 0.9999));
       canvas.drawRect(rect, paint);
       final rng = Random(obs.hashCode);
       paint.color = AppTheme.bg;
@@ -313,7 +314,7 @@ void drawLaserWall(Canvas canvas, Size size, Obstacle obs, double animTick) {
       text: TextSpan(
         text: '⬡ ARMORED',
         style: TextStyle(
-          color: effectiveColor.withOpacity(0.65 * opacity),
+          color: effectiveColor.o((0.65 * opacity).clamp(0.0, 0.9999)),
           fontSize: 7,
           fontWeight: FontWeight.w900,
           letterSpacing: 2,
@@ -337,18 +338,18 @@ void _drawHpBar(Canvas canvas, Rect wallRect, Obstacle obs, Color color, double 
 
   final paint = Paint()..style = PaintingStyle.fill;
   // Background
-  paint.color = Colors.black.withOpacity(0.55);
+  paint.color = Colors.black.o((0.55).clamp(0.0, 0.9999));
   canvas.drawRect(Rect.fromLTWH(wallRect.left, barY, wallRect.width, barH), paint);
   // Fill
   final barColor = Color.lerp(Colors.red, color, ratio)!;
-  paint.color = barColor.withOpacity(opacity);
+  paint.color = barColor.o((opacity).clamp(0.0, 0.9999));
   canvas.drawRect(
     Rect.fromLTWH(wallRect.left, barY, wallRect.width * ratio, barH),
     paint,
   );
   // Single glow pass on fill only
   paint.maskFilter = const MaskFilter.blur(BlurStyle.normal, 2);
-  paint.color = barColor.withOpacity(opacity * 0.45);
+  paint.color = barColor.o((opacity * 0.45).clamp(0.0, 0.9999));
   canvas.drawRect(
     Rect.fromLTWH(wallRect.left, barY, wallRect.width * ratio, barH),
     paint,

@@ -1,5 +1,6 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
+import '../../utils/safe_color.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // VISUAL PHILOSOPHY
@@ -55,7 +56,7 @@ void drawEngineFlame(
     // Plume: narrow translucent cone, low opacity — not a fireball
     paint.maskFilter = const MaskFilter.blur(BlurStyle.normal, 4);
     paint.shader = LinearGradient(
-      colors: [color.withOpacity(0.55), Colors.transparent],
+      colors: [color.o(0.55), Colors.transparent],
       begin: Alignment.topCenter,
       end: Alignment.bottomCenter,
     ).createShader(
@@ -71,7 +72,7 @@ void drawEngineFlame(
     // Hot core: white → color, very small, only slight blur
     paint.maskFilter = const MaskFilter.blur(BlurStyle.normal, 2);
     paint.shader = LinearGradient(
-      colors: [Colors.white, color.withOpacity(0.9), Colors.transparent],
+      colors: [Colors.white, color.o(0.9), Colors.transparent],
       stops: const [0.0, 0.45, 1.0],
       begin: Alignment.topCenter,
       end: Alignment.bottomCenter,

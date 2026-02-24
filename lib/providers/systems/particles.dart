@@ -449,7 +449,7 @@ extension ParticleSystem on GameProvider {
             y: player.y + 0.02,
             life: 0.5,
             size: 4.0,
-            color: color.withOpacity(0.4)));
+            color: color.o(0.4)));
         break;
       case TrailStyle.wide:
         for (final dx in [-0.04, 0.0, 0.04]) {
@@ -464,7 +464,7 @@ extension ParticleSystem on GameProvider {
               y: player.y + 0.03,
               life: 0.8,
               size: 5.0,
-              color: Colors.white.withOpacity(0.5)));
+              color: Colors.white.o(0.5)));
         }
         break;
     }

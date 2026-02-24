@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../models/game_models.dart';
+import '../../utils/safe_color.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // BULLET PAINTER — Physically grounded projectiles
@@ -40,7 +41,7 @@ void drawBullets(Canvas canvas, Size size, List<Bullet> bullets) {
 void _drawNeedle(Canvas canvas, double cx, double cy, Color color, Paint paint) {
   // Motion trail — gradient, no blur
   paint.shader = LinearGradient(
-    colors: [Colors.transparent, color.withOpacity(0.35)],
+    colors: [Colors.transparent, color.o(0.35)],
     begin: Alignment.bottomCenter,
     end: Alignment.topCenter,
   ).createShader(Rect.fromCenter(center: Offset(cx, cy + 6), width: 3, height: 16));
@@ -59,7 +60,7 @@ void _drawNeedle(Canvas canvas, double cx, double cy, Color color, Paint paint) 
 
   // Hot tip — single tight glow (one blur is justified here)
   paint.maskFilter = const MaskFilter.blur(BlurStyle.normal, 2.5);
-  paint.color = Colors.white.withOpacity(0.9);
+  paint.color = Colors.white.o(0.9);
   canvas.drawCircle(Offset(cx, cy - 6), 2.2, paint);
   paint.maskFilter = null;
   paint.color = Colors.white;
@@ -71,7 +72,7 @@ void _drawNeedle(Canvas canvas, double cx, double cy, Color color, Paint paint) 
 void _drawPlasma(Canvas canvas, double cx, double cy, Color color, Paint paint) {
   // Comet tail — gradient, no blur
   paint.shader = LinearGradient(
-    colors: [Colors.transparent, color.withOpacity(0.5)],
+    colors: [Colors.transparent, color.o(0.5)],
     begin: Alignment.bottomCenter,
     end: Alignment.topCenter,
   ).createShader(
@@ -84,14 +85,14 @@ void _drawPlasma(Canvas canvas, double cx, double cy, Color color, Paint paint) 
 
   // Orb body — radial gradient, no blur
   paint.shader = RadialGradient(
-    colors: [Colors.white, color, color.withOpacity(0.6)],
+    colors: [Colors.white, color, color.o(0.6)],
   ).createShader(Rect.fromCircle(center: Offset(cx, cy), radius: 5.5));
   canvas.drawCircle(Offset(cx, cy), 5.5, paint);
   paint.shader = null;
 
   // Hot centre — one tight glow
   paint.maskFilter = const MaskFilter.blur(BlurStyle.normal, 3);
-  paint.color = Colors.white.withOpacity(0.8);
+  paint.color = Colors.white.o(0.8);
   canvas.drawCircle(Offset(cx, cy - 1), 2, paint);
   paint.maskFilter = null;
 }
@@ -101,7 +102,7 @@ void _drawPlasma(Canvas canvas, double cx, double cy, Color color, Paint paint) 
 void _drawShell(Canvas canvas, double cx, double cy, Color color, Paint paint) {
   // Propellant tail — gradient oval, no blur
   paint.shader = LinearGradient(
-    colors: [Colors.transparent, color.withOpacity(0.45)],
+    colors: [Colors.transparent, color.o(0.45)],
     begin: Alignment.bottomCenter,
     end: Alignment.topCenter,
   ).createShader(Rect.fromCenter(center: Offset(cx, cy + 8), width: 6, height: 14));
@@ -139,7 +140,7 @@ void _drawShell(Canvas canvas, double cx, double cy, Color color, Paint paint) {
   paint.shader = null;
 
   // Specular gleam on tip — no blur needed, just bright dot
-  paint.color = Colors.white.withOpacity(0.6);
+  paint.color = Colors.white.o(0.6);
   canvas.drawCircle(Offset(cx - 1.5, cy - 7.5), 1.3, paint);
 
   // Base band
@@ -157,7 +158,7 @@ void _drawBeam(Canvas canvas, double cx, double cy, Color color, Paint paint) {
   paint.shader = LinearGradient(
     colors: [
       Colors.transparent,
-      color.withOpacity(0.45),
+      color.o(0.45),
       Colors.transparent,
     ],
     stops: const [0.0, 0.5, 1.0],
@@ -171,7 +172,7 @@ void _drawBeam(Canvas canvas, double cx, double cy, Color color, Paint paint) {
   paint.shader = null;
 
   // Inner bright core — no blur, just semi-transparent white
-  paint.color = Colors.white.withOpacity(0.42);
+  paint.color = Colors.white.o(0.42);
   canvas.drawOval(
     Rect.fromCenter(center: Offset(cx, cy), width: 2.5, height: 16),
     paint,
@@ -179,7 +180,7 @@ void _drawBeam(Canvas canvas, double cx, double cy, Color color, Paint paint) {
 
   // Leading tip — one glow
   paint.maskFilter = const MaskFilter.blur(BlurStyle.normal, 3);
-  paint.color = color.withOpacity(0.7);
+  paint.color = color.o(0.7);
   canvas.drawCircle(Offset(cx, cy - 11), 2.5, paint);
   paint.maskFilter = null;
 }
@@ -189,7 +190,7 @@ void _drawBeam(Canvas canvas, double cx, double cy, Color color, Paint paint) {
 void _drawCannon(Canvas canvas, double cx, double cy, Color color, Paint paint) {
   // Wake — gradient oval, no blur
   paint.shader = LinearGradient(
-    colors: [Colors.transparent, color.withOpacity(0.30)],
+    colors: [Colors.transparent, color.o(0.30)],
     begin: Alignment.bottomCenter,
     end: Alignment.topCenter,
   ).createShader(
@@ -209,14 +210,14 @@ void _drawCannon(Canvas canvas, double cx, double cy, Color color, Paint paint) 
   paint.shader = null;
 
   // Specular highlight — crisp, no blur
-  paint.color = Colors.white.withOpacity(0.5);
+  paint.color = Colors.white.o(0.5);
   canvas.drawCircle(Offset(cx - 2.5, cy - 2.5), 2.2, paint);
 
   // Energy core ring — this IS glowing, one tight blur
   paint.style = PaintingStyle.stroke;
   paint.strokeWidth = 1.8;
   paint.maskFilter = const MaskFilter.blur(BlurStyle.normal, 3);
-  paint.color = color.withOpacity(0.85);
+  paint.color = color.o(0.85);
   canvas.drawCircle(Offset(cx, cy), 4.5, paint);
   paint.maskFilter = null;
   paint.style = PaintingStyle.fill;

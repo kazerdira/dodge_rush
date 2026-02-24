@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../utils/safe_color.dart';
 import 'ship_painter_helpers.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -105,7 +106,7 @@ void drawTitanShip(Canvas canvas, double r, Color color, double animTick) {
     canvas.drawCircle(Offset(i * r * 0.22, r * 1.05), r * 0.035, paint);
   }
   // Rivet highlight
-  paint.color = Colors.white.withOpacity(0.15);
+  paint.color = Colors.white.o(0.15);
   for (int i = -3; i <= 3; i++) {
     canvas.drawCircle(Offset(i * r * 0.22 - r * 0.012, -r * 0.574), r * 0.018, paint);
   }
@@ -127,10 +128,10 @@ void drawTitanShip(Canvas canvas, double r, Color color, double animTick) {
       paint.color = const Color(0xFF1A1A22);
       canvas.drawCircle(Offset(wx, wy), r * 0.065, paint);
       // Window glass — tiny, no glow radius
-      paint.color = windowColor.withOpacity(0.85);
+      paint.color = windowColor.o(0.85);
       canvas.drawCircle(Offset(wx, wy), r * 0.042, paint);
       // Glare dot — single pixel-size highlight
-      paint.color = Colors.white.withOpacity(0.7);
+      paint.color = Colors.white.o(0.7);
       canvas.drawCircle(Offset(wx - r * 0.015, wy - r * 0.015), r * 0.015, paint);
     }
   }
@@ -168,7 +169,7 @@ void drawTitanShip(Canvas canvas, double r, Color color, double animTick) {
   paint.style = PaintingStyle.fill;
 
   // Bridge windows (3 tiny slots on tower)
-  paint.color = windowColor.withOpacity(0.75);
+  paint.color = windowColor.o(0.75);
   for (int i = -1; i <= 1; i++) {
     canvas.drawRect(
       Rect.fromCenter(

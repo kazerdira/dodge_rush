@@ -3,6 +3,7 @@ import 'dart:math';
 import '../models/game_models.dart';
 import '../providers/game_provider.dart';
 import '../theme/app_theme.dart';
+import '../utils/safe_color.dart';
 import 'painters/wall_painter.dart';
 import 'painters/chest_painter.dart';
 import 'painters/gate_painter.dart';
@@ -69,8 +70,8 @@ class GamePainter extends CustomPainter {
     void neb(Offset center, double radius, Color col, double op) {
       paint.shader = RadialGradient(
         colors: [
-          col.withOpacity(op),
-          col.withOpacity(op * 0.35),
+          col.o(op),
+          col.o(op * 0.35),
           Colors.transparent
         ],
         stops: const [0.0, 0.55, 1.0],
@@ -93,7 +94,7 @@ class GamePainter extends CustomPainter {
       double opacity = star.opacity;
       if (star.layer == 2)
         opacity = star.opacity * (0.7 + sin(animTick * 3 + star.x * 10) * 0.3);
-      paint.color = Colors.white.withOpacity(opacity.clamp(0.0, 1.0));
+      paint.color = Colors.white.o(opacity.clamp(0.0, 1.0));
       if (star.layer == 2 && star.size > 2.0) {
         final cx = star.x * size.width;
         final cy = star.y * size.height;
@@ -131,7 +132,7 @@ class GamePainter extends CustomPainter {
         final len = (8.0 + rng.nextDouble() * maxLen);
         final lineOpacity = (0.04 + sp * 0.13) * (0.5 + rng.nextDouble() * 0.5);
         paint.strokeWidth = 0.5 + sp * 1.2;
-        paint.color = lineColor.withOpacity(lineOpacity.clamp(0.0, 0.55));
+        paint.color = lineColor.o(lineOpacity.clamp(0.0, 0.55));
         canvas.drawLine(Offset(xBand, y), Offset(xBand, y + len), paint);
       }
     }
@@ -142,7 +143,7 @@ class GamePainter extends CustomPainter {
         final y = (centerRng.nextDouble() * size.height + animTick * 300) %
             size.height;
         paint.strokeWidth = 0.3;
-        paint.color = Colors.white.withOpacity(0.04 * (sp - 0.7));
+        paint.color = Colors.white.o(0.04 * (sp - 0.7));
         canvas.drawLine(Offset(0, y), Offset(size.width, y), paint);
       }
     }
@@ -156,13 +157,13 @@ class GamePainter extends CustomPainter {
       final cy = sw.y * size.height;
       final r = sw.radius * size.width;
       paint.strokeWidth = 8.0 * sw.life;
-      paint.color = sw.color.withOpacity(sw.life * 0.20);
+      paint.color = sw.color.o(sw.life * 0.20);
       canvas.drawCircle(Offset(cx, cy), r * 1.12, paint);
       paint.strokeWidth = 3.5 * sw.life;
-      paint.color = sw.color.withOpacity(sw.life * 0.75);
+      paint.color = sw.color.o(sw.life * 0.75);
       canvas.drawCircle(Offset(cx, cy), r, paint);
       paint.strokeWidth = 1.5 * sw.life;
-      paint.color = Colors.white.withOpacity(sw.life * 0.55);
+      paint.color = Colors.white.o(sw.life * 0.55);
       canvas.drawCircle(Offset(cx, cy), r * 0.72, paint);
     }
     paint.style = PaintingStyle.fill;
@@ -178,7 +179,7 @@ class GamePainter extends CustomPainter {
 
     if (t < 0.3) {
       final flashT = t / 0.3;
-      paint.color = Colors.white.withOpacity((1.0 - flashT) * 0.95);
+      paint.color = Colors.white.o((1.0 - flashT) * 0.95);
       canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), paint);
     }
 
@@ -191,13 +192,13 @@ class GamePainter extends CustomPainter {
       paint.style = PaintingStyle.stroke;
       // NO blur — three rings replicate the shockwave glow
       paint.strokeWidth = 26.0 * (1.0 - ringT);
-      paint.color = const Color(0xFFFF6B00).withOpacity(ringOpacity * 0.25);
+      paint.color = const Color(0xFFFF6B00).o(ringOpacity * 0.25);
       canvas.drawCircle(Offset(cx, cy), r * 1.06, paint);
       paint.strokeWidth = 14.0 * (1.0 - ringT);
-      paint.color = const Color(0xFFFF6B00).withOpacity(ringOpacity);
+      paint.color = const Color(0xFFFF6B00).o(ringOpacity);
       canvas.drawCircle(Offset(cx, cy), r, paint);
       paint.strokeWidth = 5.0 * (1.0 - ringT);
-      paint.color = Colors.white.withOpacity(ringOpacity * 0.85);
+      paint.color = Colors.white.o(ringOpacity * 0.85);
       canvas.drawCircle(Offset(cx, cy), r * 0.88, paint);
       paint.style = PaintingStyle.fill;
     }
@@ -207,11 +208,11 @@ class GamePainter extends CustomPainter {
       final fireRadius = size.width * 0.35 * sin(fT * pi);
       // NO blur — layered circles recreate fireball volume
       final fade = 1.0 - fT;
-      paint.color = const Color(0xFFFF6B00).withOpacity(0.12 * fade);
+      paint.color = const Color(0xFFFF6B00).o(0.12 * fade);
       canvas.drawCircle(Offset(cx, cy), fireRadius * 1.5, paint);
-      paint.color = const Color(0xFFFF3300).withOpacity(0.50 * fade);
+      paint.color = const Color(0xFFFF3300).o(0.50 * fade);
       canvas.drawCircle(Offset(cx, cy), fireRadius, paint);
-      paint.color = Colors.white.withOpacity(0.38 * fade);
+      paint.color = Colors.white.o(0.38 * fade);
       canvas.drawCircle(Offset(cx, cy), fireRadius * 0.48, paint);
     }
 
@@ -225,9 +226,9 @@ class GamePainter extends CustomPainter {
       final cx = t.x * size.width;
       final cy = t.y * size.height;
       final r = t.size * t.life;
-      paint.color = t.color.withOpacity((t.life * 0.20).clamp(0.0, 1.0));
+      paint.color = t.color.o((t.life * 0.20).clamp(0.0, 1.0));
       canvas.drawCircle(Offset(cx, cy), r * 1.9, paint);
-      paint.color = t.color.withOpacity((t.life * 0.80).clamp(0.0, 1.0));
+      paint.color = t.color.o((t.life * 0.80).clamp(0.0, 1.0));
       canvas.drawCircle(Offset(cx, cy), r, paint);
     }
   }
@@ -240,10 +241,10 @@ class GamePainter extends CustomPainter {
       final r = (g['size'] as double) * 0.9;
       final path = buildSpecterPath(cx, cy, r);
       final paint = Paint()
-        ..color = AppTheme.slowColor.withOpacity(life * 0.25)
+        ..color = AppTheme.slowColor.o(life * 0.25)
         ..style = PaintingStyle.fill;
       canvas.drawPath(path, paint);
-      paint.color = AppTheme.slowColor.withOpacity(life * 0.5);
+      paint.color = AppTheme.slowColor.o(life * 0.5);
       paint.style = PaintingStyle.stroke;
       paint.strokeWidth = 1.0;
       canvas.drawPath(path, paint);
@@ -300,7 +301,7 @@ class GamePainter extends CustomPainter {
     path.close();
 
     // NO blur — offset shadow path
-    paint.color = Colors.lightBlueAccent.withOpacity(0.18 * opacity);
+    paint.color = Colors.lightBlueAccent.o(0.18 * opacity);
     canvas.translate(-2, -2);
     canvas.drawPath(path, paint);
     canvas.translate(2, 2);
@@ -316,7 +317,7 @@ class GamePainter extends CustomPainter {
             center: const Alignment(-0.4, -0.4),
             radius: 1.2)
         .createShader(Rect.fromCircle(center: Offset.zero, radius: r));
-    paint.color = Colors.white.withOpacity(opacity);
+    paint.color = Colors.white.o(opacity);
     canvas.drawPath(path, paint);
     paint.shader = null;
 
@@ -324,8 +325,8 @@ class GamePainter extends CustomPainter {
       paint.style = PaintingStyle.stroke;
       paint.strokeWidth = 2.0;
       // NO blur on vein — bright stroke reads fine without it
-      paint.color =
-          const Color(0xFF00E5FF).withOpacity(0.85 + sin(animTick * 3) * 0.15);
+      paint.color = const Color(0xFF00E5FF)
+          .o((0.85 + sin(animTick * 3) * 0.15).clamp(0.0, 0.9999));
       final vein = Path()
         ..moveTo(-r * 0.5, -r * 0.2)
         ..lineTo(-r * 0.1, 0)
@@ -338,7 +339,7 @@ class GamePainter extends CustomPainter {
 
     if (obs.damageState != DamageState.healthy) {
       paint.color = Colors.white
-          .withOpacity(obs.damageState == DamageState.critical ? 0.5 : 0.25);
+          .o(obs.damageState == DamageState.critical ? 0.5 : 0.25);
       paint.style = PaintingStyle.stroke;
       paint.strokeWidth = obs.damageState == DamageState.critical ? 1.5 : 0.8;
       final rng = Random(obs.shape.length);
@@ -356,14 +357,14 @@ class GamePainter extends CustomPainter {
     }
 
     if (obs.damageState == DamageState.healthy) {
-      paint.color = Colors.black.withOpacity(0.6);
+      paint.color = Colors.black.o(0.6);
       canvas.drawOval(
           Rect.fromCenter(
               center: Offset(r * 0.3, r * 0.1),
               width: r * 0.4,
               height: r * 0.25),
           paint);
-      paint.color = Colors.white.withOpacity(0.1);
+      paint.color = Colors.white.o(0.1);
       canvas.drawArc(
           Rect.fromCenter(
               center: Offset(r * 0.3, r * 0.1),
@@ -399,7 +400,7 @@ class GamePainter extends CustomPainter {
       canvas.drawRect(sweptRect, paint);
       paint.shader = null;
       // NO Random() loop — 6 fixed sparks, deterministic, zero allocation
-      paint.color = obs.color.withOpacity(0.38);
+      paint.color = obs.color.o(0.38);
       for (int di = 0; di < 6; di++) {
         final dx = sweptRect.left + sweptRect.width * (0.05 + di * 0.17);
         canvas.drawCircle(
@@ -408,13 +409,13 @@ class GamePainter extends CustomPainter {
     }
 
     // NO blur on sweep head — layered rects of decreasing opacity
-    paint.color = obs.color.withOpacity(0.10);
+    paint.color = obs.color.o(0.10);
     canvas.drawRect(
         Rect.fromLTWH(headX - 55, beamY - 18, 110, beamH + 36), paint);
-    paint.color = obs.color.withOpacity(0.38);
+    paint.color = obs.color.o(0.38);
     canvas.drawRect(
         Rect.fromLTWH(headX - 24, beamY - 7, 48, beamH + 14), paint);
-    paint.color = obs.color.withOpacity(0.90);
+    paint.color = obs.color.o(0.90);
     canvas.drawRect(Rect.fromLTWH(headX - 10, beamY, 20, beamH), paint);
     paint.color = Colors.white;
     canvas.drawRect(Rect.fromLTWH(headX - 4, beamY + 1, 8, beamH - 2), paint);
@@ -443,11 +444,11 @@ class GamePainter extends CustomPainter {
       final pulse = sin(coin.pulsePhase) * 0.15 + 1.0;
       final r = 9.0 * pulse;
       // NO blur — three dim rings create the gold glow
-      paint.color = AppTheme.coinColor.withOpacity(0.08);
+      paint.color = AppTheme.coinColor.o(0.08);
       canvas.drawCircle(Offset(cx, cy), r + 15, paint);
-      paint.color = AppTheme.coinColor.withOpacity(0.18);
+      paint.color = AppTheme.coinColor.o(0.18);
       canvas.drawCircle(Offset(cx, cy), r + 7, paint);
-      paint.color = AppTheme.coinColor.withOpacity(0.30);
+      paint.color = AppTheme.coinColor.o(0.30);
       canvas.drawCircle(Offset(cx, cy), r + 2, paint);
       paint.shader = RadialGradient(colors: [
         const Color(0xFFFFF176),
@@ -457,12 +458,12 @@ class GamePainter extends CustomPainter {
           .createShader(Rect.fromCircle(center: Offset(cx, cy), radius: r));
       canvas.drawCircle(Offset(cx, cy), r, paint);
       paint.shader = null;
-      paint.color = const Color(0xFFFF8F00).withOpacity(0.5);
+      paint.color = const Color(0xFFFF8F00).o(0.5);
       paint.style = PaintingStyle.stroke;
       paint.strokeWidth = 1.5;
       canvas.drawCircle(Offset(cx, cy), r * 0.65, paint);
       paint.style = PaintingStyle.fill;
-      paint.color = Colors.white.withOpacity(0.5);
+      paint.color = Colors.white.o(0.5);
       canvas.drawCircle(Offset(cx - r * 0.28, cy - r * 0.28), r * 0.25, paint);
     }
   }
@@ -495,11 +496,11 @@ class GamePainter extends CustomPainter {
       canvas.rotate(pu.pulsePhase * 0.5);
       final paint = Paint()..style = PaintingStyle.fill;
       // NO blur — three concentric dim circles = powerup glow
-      paint.color = color.withOpacity(0.07);
+      paint.color = color.o(0.07);
       canvas.drawCircle(Offset.zero, r * pulse + 20, paint);
-      paint.color = color.withOpacity(0.17);
+      paint.color = color.o(0.17);
       canvas.drawCircle(Offset.zero, r * pulse + 10, paint);
-      paint.color = color.withOpacity(0.30);
+      paint.color = color.o(0.30);
       canvas.drawCircle(Offset.zero, r * pulse + 4, paint);
       final path = Path();
       for (int i = 0; i < 6; i++) {
@@ -510,9 +511,9 @@ class GamePainter extends CustomPainter {
           path.lineTo(cos(angle) * r * pulse, sin(angle) * r * pulse);
       }
       path.close();
-      paint.color = color.withOpacity(0.2);
+      paint.color = color.o(0.2);
       canvas.drawPath(path, paint);
-      paint.color = color.withOpacity(0.9);
+      paint.color = color.o(0.9);
       paint.style = PaintingStyle.stroke;
       paint.strokeWidth = 2;
       canvas.drawPath(path, paint);
@@ -546,27 +547,29 @@ class GamePainter extends CustomPainter {
       switch (shape) {
         // ── DOT ────────────────────────────────────────────────────────────
         case 'dot':
-          paint.color = col.withOpacity((life * 0.16).clamp(0.0, 1.0));
+          paint.color = col.o((life * 0.16).clamp(0.0, 1.0));
           canvas.drawCircle(Offset(px, py), pSize * 1.9, paint);
-          paint.color = col.withOpacity(life.clamp(0.0, 1.0));
+          paint.color = col.o(life.clamp(0.0, 1.0));
           canvas.drawCircle(Offset(px, py), pSize, paint);
           break;
 
         // ── SPARK: tiny bright needle, fades quickly ───────────────────────
         case 'spark':
-          paint.color = Colors.white.withOpacity(life.clamp(0.0, 1.0));
-          canvas.drawCircle(Offset(px, py), (pSize * 0.9).clamp(0.4, 3.2), paint);
-          paint.color = col.withOpacity((life * 0.6).clamp(0.0, 1.0));
-          canvas.drawCircle(Offset(px, py), (pSize * 0.55).clamp(0.3, 2.0), paint);
+          paint.color = Colors.white.o(life.clamp(0.0, 1.0));
+          canvas.drawCircle(
+              Offset(px, py), (pSize * 0.9).clamp(0.4, 3.2), paint);
+          paint.color = col.o((life * 0.6).clamp(0.0, 1.0));
+          canvas.drawCircle(
+              Offset(px, py), (pSize * 0.55).clamp(0.3, 2.0), paint);
           break;
 
         // ── EMBER: glowing orb with hot bright core ────────────────────────
         case 'ember':
-          paint.color = col.withOpacity((life * 0.11).clamp(0.0, 1.0));
+          paint.color = col.o((life * 0.11).clamp(0.0, 1.0));
           canvas.drawCircle(Offset(px, py), pSize * 2.3, paint);
-          paint.color = col.withOpacity((life * 0.68).clamp(0.0, 1.0));
+          paint.color = col.o((life * 0.68).clamp(0.0, 1.0));
           canvas.drawCircle(Offset(px, py), pSize, paint);
-          paint.color = Colors.white.withOpacity((life * 0.52).clamp(0.0, 1.0));
+          paint.color = Colors.white.o((life * 0.52).clamp(0.0, 1.0));
           canvas.drawCircle(Offset(px, py), pSize * 0.36, paint);
           break;
 
@@ -581,11 +584,11 @@ class GamePainter extends CustomPainter {
           canvas.translate(px, py);
           canvas.rotate(angle);
           // Main shard body
-          paint.color = col.withOpacity(life.clamp(0.0, 1.0));
+          paint.color = col.o(life.clamp(0.0, 1.0));
           canvas.drawRect(
               Rect.fromCenter(center: Offset.zero, width: w, height: h), paint);
           // Single specular gleam on lit face (top-left light source)
-          paint.color = Colors.white.withOpacity((life * 0.32).clamp(0.0, 1.0));
+          paint.color = Colors.white.o((life * 0.32).clamp(0.0, 1.0));
           canvas.drawRect(
               Rect.fromCenter(
                   center: Offset(0, -h * 0.28),
@@ -606,14 +609,14 @@ class GamePainter extends CustomPainter {
           canvas.translate(px, py);
           canvas.rotate(angle);
           // Main chunk body
-          paint.color = col.withOpacity(life.clamp(0.0, 1.0));
+          paint.color = col.o(life.clamp(0.0, 1.0));
           canvas.drawRRect(
               RRect.fromRectAndRadius(
                   Rect.fromCenter(center: Offset.zero, width: w, height: h),
                   Radius.circular(h * 0.20)),
               paint);
           // Lit top edge (simulates 3D volume under top-left light)
-          paint.color = Colors.white.withOpacity((life * 0.20).clamp(0.0, 1.0));
+          paint.color = Colors.white.o((life * 0.20).clamp(0.0, 1.0));
           canvas.drawRRect(
               RRect.fromRectAndRadius(
                   Rect.fromCenter(
@@ -626,7 +629,7 @@ class GamePainter extends CustomPainter {
           break;
 
         default:
-          paint.color = col.withOpacity(life.clamp(0.0, 1.0));
+          paint.color = col.o(life.clamp(0.0, 1.0));
           canvas.drawCircle(Offset(px, py), pSize, paint);
       }
     }
@@ -652,14 +655,14 @@ class GamePainter extends CustomPainter {
       final shP = Paint()
         ..shader = RadialGradient(
           colors: [
-            AppTheme.accentAlt.withOpacity(0.0),
-            AppTheme.accentAlt.withOpacity(0.2 * sp),
-            AppTheme.accentAlt.withOpacity(0.8 * sp)
+            AppTheme.accentAlt.o(0.0),
+            AppTheme.accentAlt.o(0.2 * sp),
+            AppTheme.accentAlt.o(0.8 * sp)
           ],
         ).createShader(Rect.fromCircle(center: Offset.zero, radius: r + 18));
       canvas.drawCircle(Offset.zero, r + 18, shP);
       shP.shader = null;
-      shP.color = Colors.white.withOpacity(0.4 * sp);
+      shP.color = Colors.white.o(0.4 * sp);
       shP.style = PaintingStyle.stroke;
       shP.strokeWidth = 2.0;
       canvas.drawCircle(Offset.zero, r + 16, shP);

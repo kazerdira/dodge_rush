@@ -5,7 +5,7 @@ import '../../utils/safe_color.dart';
 
 // ── BOSS PAINTER ─────────────────────────────────────────────────────────────
 // IMPERIAL DREADNOUGHT — Massive metallic warship with strong 3-D shading.
-// All .o() replaced with .o() to prevent "Invalid argument" crash.
+// All .withOpacity() replaced with .o() to prevent "Invalid argument" crash.
 
 void drawBossShip(
     Canvas canvas,
@@ -41,8 +41,7 @@ void drawBossShip(
   final paint = Paint()..style = PaintingStyle.fill;
 
   // ── 1. DANGER AURA ────────────────────────────────────────────────────────
-  final aura =
-      ((1.0 - hpRatio) * 0.35 + boss.warningFlash * 0.5).clamp(0.0, 1.0);
+  final aura = ((1.0 - hpRatio) * 0.35 + boss.warningFlash * 0.5).clamp(0.0, 1.0);
   if (aura > 0.05) {
     paint.maskFilter = MaskFilter.blur(BlurStyle.normal, 70);
     paint.color = const Color(0xFFCC1100).o(aura * 0.35 * opacity);
@@ -56,26 +55,24 @@ void drawBossShip(
   for (int side = -1; side <= 1; side += 2) {
     final s = side.toDouble();
 
-    // Main wing — wider and more swept, like the reference
     final wing = Path()
-      ..moveTo(s * w * 0.15, -h * 0.30) // root leading
-      ..lineTo(s * w * 1.20, -h * 0.72) // tip leading (farther out)
-      ..lineTo(s * w * 1.28, -h * 0.50) // outer tip
-      ..lineTo(s * w * 1.22, h * 0.05) // outer mid
-      ..lineTo(s * w * 1.05, h * 0.38) // outer trailing shoulder
-      ..lineTo(s * w * 0.72, h * 0.55) // trailing notch
+      ..moveTo(s * w * 0.15, -h * 0.30)
+      ..lineTo(s * w * 1.20, -h * 0.72)
+      ..lineTo(s * w * 1.28, -h * 0.50)
+      ..lineTo(s * w * 1.22, h * 0.05)
+      ..lineTo(s * w * 1.05, h * 0.38)
+      ..lineTo(s * w * 0.72, h * 0.55)
       ..lineTo(s * w * 0.45, h * 0.48)
-      ..lineTo(s * w * 0.20, h * 0.18) // root trailing
+      ..lineTo(s * w * 0.20, h * 0.18)
       ..close();
 
-    // ── Deep 3-D gradient: bright top edge → dark body → near-black at far tip
     paint.shader = LinearGradient(
       colors: [
-        const Color(0xFF9A9AAA), // bright near-hull
+        const Color(0xFF9A9AAA),
         const Color(0xFF6A6A7A),
         const Color(0xFF404050),
         const Color(0xFF252532),
-        const Color(0xFF0E0E18), // black wing tip
+        const Color(0xFF0E0E18),
       ],
       stops: const [0.0, 0.18, 0.45, 0.72, 1.0],
       begin: side < 0 ? Alignment.centerRight : Alignment.centerLeft,
@@ -85,7 +82,6 @@ void drawBossShip(
     canvas.drawPath(wing, paint);
     paint.shader = null;
 
-    // ── TOP FACE specular sheen (upper-lit feeling)
     final sheen = Path()
       ..moveTo(s * w * 0.15, -h * 0.30)
       ..lineTo(s * w * 0.70, -h * 0.55)
@@ -95,7 +91,6 @@ void drawBossShip(
     paint.color = Colors.white.o(0.10 * opacity);
     canvas.drawPath(sheen, paint);
 
-    // ── RIM LIGHT on leading edge (bright top highlight → 3-D illusion)
     paint.style = PaintingStyle.stroke;
     paint.strokeWidth = 1.5;
     paint.color = Colors.white.o(0.28 * opacity);
@@ -103,14 +98,13 @@ void drawBossShip(
         Offset(s * w * 1.20, -h * 0.72), paint);
     paint.style = PaintingStyle.fill;
 
-    // ── Wing outline dark
     paint.style = PaintingStyle.stroke;
     paint.strokeWidth = 1.2;
     paint.color = const Color(0xFF08080F).o(opacity);
     canvas.drawPath(wing, paint);
     paint.style = PaintingStyle.fill;
 
-    // ── RED GLOW trim — leading edge (double pass: blur + crisp)
+    // Red glow trim — leading edge
     paint.style = PaintingStyle.stroke;
     paint.strokeWidth = 3.0;
     paint.maskFilter = MaskFilter.blur(BlurStyle.normal, 8);
@@ -123,7 +117,6 @@ void drawBossShip(
     canvas.drawLine(Offset(s * w * 0.15, -h * 0.30),
         Offset(s * w * 1.20, -h * 0.72), paint);
 
-    // ── RED GLOW trim — trailing shoulder
     paint.strokeWidth = 2.0;
     paint.maskFilter = MaskFilter.blur(BlurStyle.normal, 5);
     paint.color = const Color(0xFFFF2200).o(0.55 * opacity);
@@ -135,7 +128,7 @@ void drawBossShip(
     canvas.drawLine(
         Offset(s * w * 1.05, h * 0.38), Offset(s * w * 0.72, h * 0.55), paint);
 
-    // ── PANEL SEAM LINES (structural rib feel)
+    // Panel seam lines
     paint.strokeWidth = 0.8;
     paint.color = const Color(0xFF0D0D1A).o(0.9 * opacity);
     for (int p = 1; p <= 5; p++) {
@@ -146,28 +139,22 @@ void drawBossShip(
         paint,
       );
     }
-
-    // Cross-panel ribs
     for (int r = 0; r < 3; r++) {
       final t = (r + 1) / 4.0;
       final x0 = s * w * (0.22 + t * 0.55);
       final y0 = -h * (0.32 - t * 0.12);
       canvas.drawLine(
-        Offset(x0, y0),
-        Offset(x0 + s * w * 0.12, y0 + h * 0.30),
-        paint,
-      );
+          Offset(x0, y0), Offset(x0 + s * w * 0.12, y0 + h * 0.30), paint);
     }
     paint.style = PaintingStyle.fill;
 
-    // ── RAISED PANEL BLOCKS — armour plates on wing surface
+    // Raised panel blocks
     for (int block = 0; block < 3; block++) {
       final bt = (block + 1) / 4.0;
       final bx = s * w * (0.30 + bt * 0.52);
       final by = -h * 0.18 + bt * h * 0.22;
       final bw = w * 0.12;
       final bh2 = h * 0.18;
-      // Slightly lighter than wing fill → raised-panel illusion
       paint.color = const Color(0xFF525262).o(0.55 * opacity);
       canvas.drawRRect(
           RRect.fromRectAndRadius(
@@ -185,7 +172,7 @@ void drawBossShip(
       paint.style = PaintingStyle.fill;
     }
 
-    // ── RED VENT DOTS along leading edge
+    // Red vent dots along leading edge
     for (int d = 0; d < 6; d++) {
       final t = (d + 1) / 7.0;
       final vx = s * (w * 0.15 + t * w * 0.92);
@@ -200,10 +187,9 @@ void drawBossShip(
       canvas.drawCircle(Offset(vx, vy), 1.3, paint);
     }
 
-    // ── Mechanical claw arm
     _drawClawArm(canvas, side, w, h, opacity, pulse, animTick, paint);
 
-    // ── FORWARD MANDIBLE — aggressive pincer extension from wing trailing edge
+    // Forward mandible
     final mSwing = sin(animTick * 1.5 + side * pi) * h * 0.025;
     final mandible = Path()
       ..moveTo(s * w * 0.45, h * 0.48)
@@ -214,7 +200,6 @@ void drawBossShip(
       ..lineTo(s * w * 0.52, h * 0.64)
       ..close();
 
-    // 3-D gradient matching wing light direction
     paint.shader = LinearGradient(
       colors: [
         const Color(0xFF707080),
@@ -227,34 +212,36 @@ void drawBossShip(
     canvas.drawPath(mandible, paint);
     paint.shader = null;
 
-    // Dark outline
     paint.style = PaintingStyle.stroke;
     paint.strokeWidth = 1.2;
     paint.color = const Color(0xFF08080F).o(opacity);
     canvas.drawPath(mandible, paint);
-
-    // Rim light on outer edge
     paint.strokeWidth = 1.0;
     paint.color = Colors.white.o(0.22 * opacity);
-    canvas.drawLine(Offset(s * w * 0.72, h * 0.55),
-        Offset(s * w * 0.88, h * 0.78 + mSwing), paint);
+    canvas.drawLine(
+        Offset(s * w * 0.72, h * 0.55),
+        Offset(s * w * 0.88, h * 0.78 + mSwing),
+        paint);
     paint.style = PaintingStyle.fill;
 
-    // Red glow trim on mandible leading edge
     paint.style = PaintingStyle.stroke;
     paint.strokeWidth = 2.5;
     paint.maskFilter = MaskFilter.blur(BlurStyle.normal, 6);
     paint.color = const Color(0xFFFF2200).o((0.55 + pulse * 0.35) * opacity);
-    canvas.drawLine(Offset(s * w * 0.88, h * 0.78 + mSwing),
-        Offset(s * w * 0.80, h * 1.08 + mSwing), paint);
+    canvas.drawLine(
+        Offset(s * w * 0.88, h * 0.78 + mSwing),
+        Offset(s * w * 0.80, h * 1.08 + mSwing),
+        paint);
     paint.maskFilter = null;
     paint.strokeWidth = 1.2;
     paint.color = const Color(0xFFFF3311).o(0.80 * opacity);
-    canvas.drawLine(Offset(s * w * 0.88, h * 0.78 + mSwing),
-        Offset(s * w * 0.80, h * 1.08 + mSwing), paint);
+    canvas.drawLine(
+        Offset(s * w * 0.88, h * 0.78 + mSwing),
+        Offset(s * w * 0.80, h * 1.08 + mSwing),
+        paint);
     paint.style = PaintingStyle.fill;
 
-    // Mandible glowing vent dots
+    // Mandible vent dots
     for (int v = 0; v < 3; v++) {
       final t = v / 2.0;
       final vx = s * w * (0.74 - t * 0.06);
@@ -286,14 +273,13 @@ void drawBossShip(
     ..lineTo(-w * 0.35, -h * 0.65)
     ..close();
 
-  // ── Hull base coat: top-lit metallic, dark at bottom
   paint.shader = LinearGradient(
     colors: [
-      const Color(0xFF9A9AAB), // top highlight
+      const Color(0xFF9A9AAB),
       const Color(0xFF6A6A7A),
       const Color(0xFF444452),
       const Color(0xFF252530),
-      const Color(0xFF0E0E16), // dark bottom
+      const Color(0xFF0E0E16),
     ],
     stops: const [0.0, 0.20, 0.50, 0.75, 1.0],
     begin: Alignment.topCenter,
@@ -303,7 +289,6 @@ void drawBossShip(
   canvas.drawPath(hull, paint);
   paint.shader = null;
 
-  // ── Centre specular hot-spot (simulates top light source)
   paint.shader = LinearGradient(
     colors: [
       Colors.white.o(0.22 * opacity),
@@ -318,7 +303,6 @@ void drawBossShip(
   canvas.drawPath(hull, paint);
   paint.shader = null;
 
-  // ── Edge rim light — left side bright edge
   paint.style = PaintingStyle.stroke;
   paint.strokeWidth = 1.2;
   paint.color = Colors.white.o(0.18 * opacity);
@@ -328,12 +312,10 @@ void drawBossShip(
       Offset(w * 0.35, -h * 0.65), Offset(w * 0.42, -h * 0.15), paint);
   paint.style = PaintingStyle.fill;
 
-  // ── Armour plate panels
+  // Armour plate panels
   final plateRects = [
     Rect.fromCenter(
-        center: Offset(-w * 0.24, -h * 0.38),
-        width: w * 0.20,
-        height: h * 0.30),
+        center: Offset(-w * 0.24, -h * 0.38), width: w * 0.20, height: h * 0.30),
     Rect.fromCenter(
         center: Offset(w * 0.24, -h * 0.38), width: w * 0.20, height: h * 0.30),
     Rect.fromCenter(
@@ -344,11 +326,9 @@ void drawBossShip(
         center: Offset(0.0, -h * 0.50), width: w * 0.22, height: h * 0.18),
   ];
   for (final pr in plateRects) {
-    // Raised plate — lighter
     paint.color = const Color(0xFF565668).o(0.65 * opacity);
     canvas.drawRRect(
         RRect.fromRectAndRadius(pr, const Radius.circular(2)), paint);
-    // Plate top sheen
     paint.color = Colors.white.o(0.07 * opacity);
     canvas.drawRRect(
         RRect.fromRectAndRadius(
@@ -363,21 +343,19 @@ void drawBossShip(
     paint.style = PaintingStyle.fill;
   }
 
-  // ── Grooved rib lines (shadow + highlight for 3-D groove illusion)
+  // Grooved rib lines
   paint.style = PaintingStyle.stroke;
   paint.strokeWidth = 1.0;
   for (int rib = 0; rib < 7; rib++) {
     final ry = -h * 0.85 + rib * h * 0.28;
     final ww = w * (0.40 - rib * 0.008);
-    // Shadow cut
     paint.color = const Color(0xFF05050A).o(opacity);
     canvas.drawLine(Offset(-ww, ry), Offset(ww, ry), paint);
-    // Highlight 1px below → deep groove illusion
     paint.color = Colors.white.o(0.12 * opacity);
     canvas.drawLine(Offset(-ww, ry + 1.0), Offset(ww, ry + 1.0), paint);
   }
 
-  // ── Red vertical accent lines on hull sides
+  // Red vertical accent lines
   paint.strokeWidth = 2.2;
   paint.maskFilter = MaskFilter.blur(BlurStyle.normal, 5);
   paint.color = const Color(0xFFFF2200).o((0.55 + pulse * 0.35) * opacity);
@@ -394,7 +372,7 @@ void drawBossShip(
   }
   paint.style = PaintingStyle.fill;
 
-  // ── Hull outline
+  // Hull outline
   paint.style = PaintingStyle.stroke;
   paint.strokeWidth = 1.5;
   paint.color = const Color(0xFF070710).o(opacity);
@@ -402,7 +380,6 @@ void drawBossShip(
   paint.style = PaintingStyle.fill;
 
   // ── 4. RED EYE / REACTOR CORE ─────────────────────────────────────────────
-  // Housing ring — deep metallic
   paint.shader = RadialGradient(
     colors: [const Color(0xFF2E2E3C), const Color(0xFF101018)],
     center: const Alignment(-0.25, -0.35),
@@ -411,31 +388,25 @@ void drawBossShip(
   canvas.drawCircle(Offset(0, -h * 0.08), w * 0.17, paint);
   paint.shader = null;
 
-  // Outer ring — brushed metal rim
   paint.style = PaintingStyle.stroke;
   paint.strokeWidth = 4.0;
   paint.color = const Color(0xFF606072).o(opacity);
   canvas.drawCircle(Offset(0, -h * 0.08), w * 0.155, paint);
   paint.strokeWidth = 1.5;
-  paint.color = Colors.white.o(0.20 * opacity); // rim light
+  paint.color = Colors.white.o(0.20 * opacity);
   canvas.drawArc(
       Rect.fromCircle(center: Offset(0, -h * 0.08), radius: w * 0.155),
-      -pi * 0.9,
-      pi * 0.6,
-      false,
-      paint);
+      -pi * 0.9, pi * 0.6, false, paint);
   paint.strokeWidth = 1.5;
   paint.color = const Color(0xFF2A2A38).o(opacity);
   canvas.drawCircle(Offset(0, -h * 0.08), w * 0.122, paint);
   paint.style = PaintingStyle.fill;
 
-  // Eye outer glow
   paint.maskFilter = MaskFilter.blur(BlurStyle.normal, 22);
   paint.color = const Color(0xFFFF1A00).o((0.65 + pulse * 0.35) * opacity);
   canvas.drawCircle(Offset(0, -h * 0.08), w * 0.135, paint);
   paint.maskFilter = null;
 
-  // Eye iris
   paint.shader = RadialGradient(
     colors: [
       const Color(0xFFFFFFFF),
@@ -450,14 +421,12 @@ void drawBossShip(
   canvas.drawCircle(Offset(0, -h * 0.08), w * 0.115, paint);
   paint.shader = null;
 
-  // Glare spot
   paint.color = Colors.white.o(0.72 * opacity);
   canvas.drawCircle(Offset(-w * 0.028, -h * 0.118), w * 0.030, paint);
 
   if (boss.warningFlash > 0.05) {
     paint.maskFilter = MaskFilter.blur(BlurStyle.normal, 28);
-    paint.color =
-        const Color(0xFFFF0000).o(boss.warningFlash.clamp(0.0, 1.0) * opacity);
+    paint.color = const Color(0xFFFF0000).o(boss.warningFlash.clamp(0.0, 1.0) * opacity);
     canvas.drawCircle(Offset(0, -h * 0.08), w * 0.28, paint);
     paint.maskFilter = null;
   }
@@ -470,7 +439,6 @@ void drawBossShip(
     ..lineTo(-w * 0.058, h * 1.00)
     ..close();
 
-  // 3-D left-lit barrel
   paint.shader = LinearGradient(
     colors: [
       const Color(0xFF787888),
@@ -486,7 +454,6 @@ void drawBossShip(
   canvas.drawPath(cannonPath, paint);
   paint.shader = null;
 
-  // Barrel highlight line (left edge lit)
   paint.style = PaintingStyle.stroke;
   paint.strokeWidth = 1.5;
   paint.color = Colors.white.o(0.22 * opacity);
@@ -500,7 +467,6 @@ void drawBossShip(
   canvas.drawPath(cannonPath, paint);
   paint.style = PaintingStyle.fill;
 
-  // Barrel rings
   for (int ring = 0; ring < 6; ring++) {
     final ry = h * 0.16 + ring * h * 0.138;
     paint.shader = LinearGradient(
@@ -516,7 +482,6 @@ void drawBossShip(
             const Radius.circular(2)),
         paint);
     paint.shader = null;
-    // Ring top sheen
     paint.color = Colors.white.o(0.10 * opacity);
     canvas.drawRRect(
         RRect.fromRectAndRadius(
@@ -563,15 +528,12 @@ void drawBossShip(
       paint);
   paint.style = PaintingStyle.fill;
 
-  // Cannon charge glow
   if (boss.warningFlash > 0.05) {
     paint.maskFilter = MaskFilter.blur(BlurStyle.normal, 22);
-    paint.color =
-        const Color(0xFFFF0033).o(boss.warningFlash.clamp(0.0, 1.0) * opacity);
+    paint.color = const Color(0xFFFF0033).o(boss.warningFlash.clamp(0.0, 1.0) * opacity);
     canvas.drawCircle(Offset(0, h * 1.06), w * 0.12, paint);
     paint.maskFilter = null;
-    paint.color =
-        Colors.white.o(boss.warningFlash.clamp(0.0, 1.0) * 0.9 * opacity);
+    paint.color = Colors.white.o(boss.warningFlash.clamp(0.0, 1.0) * 0.9 * opacity);
     canvas.drawCircle(Offset(0, h * 1.06), w * 0.042, paint);
   }
 
@@ -597,7 +559,6 @@ void drawBossShip(
   canvas.drawPath(tower, paint);
   paint.shader = null;
 
-  // Tower rim lights
   paint.style = PaintingStyle.stroke;
   paint.strokeWidth = 1.0;
   paint.color = Colors.white.o(0.22 * opacity);
@@ -606,7 +567,6 @@ void drawBossShip(
   paint.strokeWidth = 0.8;
   paint.color = const Color(0xFF08080F).o(opacity);
   canvas.drawPath(tower, paint);
-  // Seam lines
   canvas.drawLine(
       Offset(-w * 0.042, -h * 0.85), Offset(-w * 0.032, -h * 1.05), paint);
   canvas.drawLine(
@@ -672,7 +632,6 @@ void _drawClawArm(Canvas canvas, int side, double w, double h, double opacity,
   final baseX = s * w * 0.70;
   final baseY = h * 0.20;
 
-  // Upper arm — 3-D gradient
   paint.shader = LinearGradient(
     colors: [
       const Color(0xFF6A6A78),
@@ -695,7 +654,6 @@ void _drawClawArm(Canvas canvas, int side, double w, double h, double opacity,
       paint);
   paint.shader = null;
 
-  // Arm rim highlight
   paint.style = PaintingStyle.stroke;
   paint.strokeWidth = 1.0;
   paint.color = Colors.white.o(0.18 * opacity);
@@ -713,7 +671,6 @@ void _drawClawArm(Canvas canvas, int side, double w, double h, double opacity,
       paint);
   paint.style = PaintingStyle.fill;
 
-  // Joint ball
   paint.shader = RadialGradient(
     colors: [const Color(0xFF727282), const Color(0xFF2A2A3A)],
     center: const Alignment(-0.35, -0.35),
@@ -722,7 +679,6 @@ void _drawClawArm(Canvas canvas, int side, double w, double h, double opacity,
   canvas.drawCircle(Offset(baseX, baseY + h * 0.37), w * 0.048, paint);
   paint.shader = null;
 
-  // Joint red ring glow
   paint.style = PaintingStyle.stroke;
   paint.strokeWidth = 1.8;
   paint.maskFilter = MaskFilter.blur(BlurStyle.normal, 4);
@@ -731,7 +687,6 @@ void _drawClawArm(Canvas canvas, int side, double w, double h, double opacity,
   paint.maskFilter = null;
   paint.style = PaintingStyle.fill;
 
-  // Lower arm — angled outward with 3-D shading
   final endX = baseX + s * w * 0.15;
   final endY = baseY + h * 0.66 + swing;
   final lowerPath = Path()
@@ -753,14 +708,12 @@ void _drawClawArm(Canvas canvas, int side, double w, double h, double opacity,
   canvas.drawPath(lowerPath, paint);
   paint.shader = null;
 
-  // Lower arm outline
   paint.style = PaintingStyle.stroke;
   paint.strokeWidth = 0.8;
   paint.color = const Color(0xFF08080F).o(opacity);
   canvas.drawPath(lowerPath, paint);
   paint.style = PaintingStyle.fill;
 
-  // 3 claw prongs
   for (int c = -1; c <= 1; c++) {
     final cx2 = endX + c * s * w * 0.044;
     final cy2base = endY;
@@ -783,7 +736,6 @@ void _drawClawArm(Canvas canvas, int side, double w, double h, double opacity,
     paint.color = const Color(0xFF08080F).o(opacity);
     canvas.drawPath(claw, paint);
     paint.style = PaintingStyle.fill;
-    // Red claw tip glow
     paint.maskFilter = MaskFilter.blur(BlurStyle.normal, 5);
     paint.color = const Color(0xFFFF2200).o((0.55 + pulse * 0.45) * opacity);
     canvas.drawCircle(Offset(cx2, cy2base + h * 0.162), 2.5, paint);

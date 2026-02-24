@@ -7,6 +7,7 @@ import '../providers/game_provider.dart';
 import '../providers/settings_provider.dart';
 import '../models/game_models.dart';
 import '../theme/app_theme.dart';
+import '../utils/safe_color.dart';
 import '../game/game_painter.dart';
 import 'game_over_screen.dart';
 
@@ -144,7 +145,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
         if (_showHitFlash)
           Positioned.fill(
               child: IgnorePointer(
-                  child: Container(color: AppTheme.danger.withOpacity(0.28)))),
+                  child: Container(color: AppTheme.danger.o(0.28)))),
 
         // HUD — ListenableBuilder inside so only HUD rebuilds, not canvas
         SafeArea(
@@ -197,20 +198,20 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                         padding: const EdgeInsets.symmetric(
                             horizontal: 24, vertical: 12),
                         decoration: BoxDecoration(
-                          color: AppTheme.card.withOpacity(0.95),
+                          color: AppTheme.card.o(0.95),
                           borderRadius: BorderRadius.circular(30),
                           border: Border.all(
                               color: (isBomb
                                       ? const Color(0xFFFF6B00)
                                       : AppTheme.coinColor)
-                                  .withOpacity(0.7),
+                                  .o(0.7),
                               width: 1.5),
                           boxShadow: [
                             BoxShadow(
                                 color: (isBomb
                                         ? const Color(0xFFFF6B00)
                                         : AppTheme.coinColor)
-                                    .withOpacity(0.3),
+                                    .o(0.3),
                                 blurRadius: 20)
                           ],
                         ),
@@ -283,7 +284,7 @@ class _GameCanvas extends StatelessWidget {
             Positioned.fill(
                 child: IgnorePointer(
                     child: Container(
-                        color: AppTheme.slowColor.withOpacity(0.04)))),
+                        color: AppTheme.slowColor.o(0.04)))),
 
           // Bomb flash — fades via detonationTimer, no setState needed
           if (game.activeBomb != null)
@@ -302,7 +303,7 @@ class _GameCanvas extends StatelessWidget {
                     child: Container(
               decoration: BoxDecoration(
                   border: Border.all(
-                      color: AppTheme.accentAlt.withOpacity(0.5), width: 2)),
+                      color: AppTheme.accentAlt.o(0.5), width: 2)),
             ))),
 
           // Sector vignette
@@ -311,7 +312,7 @@ class _GameCanvas extends StatelessWidget {
                   child: Container(
             decoration: BoxDecoration(
                 gradient: RadialGradient(
-              colors: [Colors.transparent, pal.nebulaColor.withOpacity(0.28)],
+              colors: [Colors.transparent, pal.nebulaColor.o(0.28)],
               center: Alignment.center,
               radius: 1.1,
             )),
@@ -360,10 +361,10 @@ class _WeaponIndicator extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: AppTheme.card.withOpacity(0.9),
+        color: AppTheme.card.o(0.9),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withOpacity(0.5), width: 1.5),
-        boxShadow: [BoxShadow(color: color.withOpacity(0.2), blurRadius: 12)],
+        border: Border.all(color: color.o(0.5), width: 1.5),
+        boxShadow: [BoxShadow(color: color.o(0.2), blurRadius: 12)],
       ),
       child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -438,10 +439,10 @@ class _BombButtonState extends State<_BombButton> {
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               color: _pressed
-                  ? bombColor.withOpacity(0.4)
-                  : AppTheme.card.withOpacity(0.9),
+                  ? bombColor.o(0.4)
+                  : AppTheme.card.o(0.9),
               border: Border.all(
-                  color: bombColor.withOpacity(_pressed
+                  color: bombColor.o(_pressed
                       ? 1.0
                       : hasBombs
                           ? 0.7
@@ -450,7 +451,7 @@ class _BombButtonState extends State<_BombButton> {
               boxShadow: hasBombs
                   ? [
                       BoxShadow(
-                          color: bombColor.withOpacity(_pressed ? 0.7 : 0.25),
+                          color: bombColor.o(_pressed ? 0.7 : 0.25),
                           blurRadius: _pressed ? 30 : 14)
                     ]
                   : null,
@@ -553,14 +554,14 @@ class _SectorBannerState extends State<_SectorBanner>
               decoration: BoxDecoration(
                 border: Border(
                   top: BorderSide(
-                      color: pal.accentA.withOpacity(0.7), width: 1.5),
+                      color: pal.accentA.o(0.7), width: 1.5),
                   bottom: BorderSide(
-                      color: pal.accentA.withOpacity(0.7), width: 1.5),
+                      color: pal.accentA.o(0.7), width: 1.5),
                 ),
                 gradient: LinearGradient(
                   colors: [
                     Colors.transparent,
-                    pal.nebulaColor.withOpacity(0.6),
+                    pal.nebulaColor.o(0.6),
                     Colors.transparent
                   ],
                   stops: const [0.0, 0.5, 1.0],
@@ -569,7 +570,7 @@ class _SectorBannerState extends State<_SectorBanner>
               child: Column(mainAxisSize: MainAxisSize.min, children: [
                 Text('ENTERING',
                     style: GoogleFonts.rajdhani(
-                        color: pal.accentB.withOpacity(0.8),
+                        color: pal.accentB.o(0.8),
                         fontSize: 11,
                         letterSpacing: 6,
                         fontWeight: FontWeight.w900)),
@@ -583,7 +584,7 @@ class _SectorBannerState extends State<_SectorBanner>
                 const SizedBox(height: 4),
                 Text('SECTOR $_lastSector',
                     style: GoogleFonts.rajdhani(
-                        color: pal.accentA.withOpacity(0.6),
+                        color: pal.accentA.o(0.6),
                         fontSize: 13,
                         letterSpacing: 4,
                         fontWeight: FontWeight.w700)),
@@ -646,7 +647,7 @@ class _RampageButtonState extends State<_RampageButton> {
             border: Border.all(color: const Color(0xFFFF6B00), width: 2.5),
             boxShadow: [
               BoxShadow(
-                  color: const Color(0xFFFF6B00).withOpacity(0.6),
+                  color: const Color(0xFFFF6B00).o(0.6),
                   blurRadius: 18,
                   spreadRadius: 2)
             ],
@@ -671,7 +672,7 @@ class _PauseOverlay extends StatelessWidget {
     final pal = game.palette;
     return Positioned.fill(
         child: Container(
-      color: Colors.black.withOpacity(0.75),
+      color: Colors.black.o(0.75),
       child: Center(
           child: Column(mainAxisSize: MainAxisSize.min, children: [
         Text('◼ PAUSED',
@@ -683,7 +684,7 @@ class _PauseOverlay extends StatelessWidget {
         const SizedBox(height: 8),
         Text(pal.name,
             style: GoogleFonts.rajdhani(
-                color: pal.accentA.withOpacity(0.6),
+                color: pal.accentA.o(0.6),
                 fontSize: 12,
                 letterSpacing: 4)),
         Text('SECTOR ${game.state.sector}',
@@ -743,9 +744,9 @@ class _HUD extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
             decoration: BoxDecoration(
-              color: pal.nebulaColor.withOpacity(0.6),
+              color: pal.nebulaColor.o(0.6),
               borderRadius: BorderRadius.circular(6),
-              border: Border.all(color: pal.accentA.withOpacity(0.5)),
+              border: Border.all(color: pal.accentA.o(0.5)),
             ),
             child: Row(mainAxisSize: MainAxisSize.min, children: [
               Container(
@@ -766,7 +767,7 @@ class _HUD extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             decoration: BoxDecoration(
-                color: AppTheme.card.withOpacity(0.9),
+                color: AppTheme.card.o(0.9),
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(color: AppTheme.cardBorder)),
             child: Text(_formatScore(game.state.score),
@@ -807,10 +808,10 @@ class _HUD extends StatelessWidget {
               margin: const EdgeInsets.only(right: 8),
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
-                color: const Color(0xFFFF6B2B).withOpacity(0.12),
+                color: const Color(0xFFFF6B2B).o(0.12),
                 borderRadius: BorderRadius.circular(12),
                 border:
-                    Border.all(color: const Color(0xFFFF6B2B).withOpacity(0.4)),
+                    Border.all(color: const Color(0xFFFF6B2B).o(0.4)),
               ),
               child: Row(children: [
                 const Text('💥', style: TextStyle(fontSize: 10)),
@@ -825,9 +826,9 @@ class _HUD extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
             decoration: BoxDecoration(
-                color: AppTheme.coinColor.withOpacity(0.12),
+                color: AppTheme.coinColor.o(0.12),
                 borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: AppTheme.coinColor.withOpacity(0.3))),
+                border: Border.all(color: AppTheme.coinColor.o(0.3))),
             child: Row(children: [
               const Icon(Icons.circle, color: AppTheme.coinColor, size: 8),
               const SizedBox(width: 5),
@@ -865,9 +866,9 @@ class _HUD extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
             decoration: BoxDecoration(
-              color: AppTheme.coinColor.withOpacity(0.1),
+              color: AppTheme.coinColor.o(0.1),
               borderRadius: BorderRadius.circular(6),
-              border: Border.all(color: AppTheme.coinColor.withOpacity(0.4)),
+              border: Border.all(color: AppTheme.coinColor.o(0.4)),
             ),
             child: Text('✕${game.state.combo}  COMBO',
                 style: GoogleFonts.rajdhani(
@@ -900,7 +901,7 @@ class _HUDBtn extends StatelessWidget {
         width: 36,
         height: 36,
         decoration: BoxDecoration(
-            color: AppTheme.card.withOpacity(0.85),
+            color: AppTheme.card.o(0.85),
             borderRadius: BorderRadius.circular(8),
             border: Border.all(color: AppTheme.cardBorder)),
         child: Icon(icon, color: AppTheme.textSecondary, size: 16),
@@ -921,9 +922,9 @@ class _PowerBar extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-          color: color.withOpacity(0.1),
+          color: color.o(0.1),
           borderRadius: BorderRadius.circular(6),
-          border: Border.all(color: color.withOpacity(0.4))),
+          border: Border.all(color: color.o(0.4))),
       child: Row(mainAxisSize: MainAxisSize.min, children: [
         SizedBox(
             width: 44,

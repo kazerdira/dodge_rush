@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:math';
 import '../../providers/game_provider.dart';
+import '../../utils/safe_color.dart';
 
 // ── OVERLAY PAINTER ──────────────────────────────────────────────────────────
 // HUD overlays: danger vignette, sweep warning, near-miss flash, combo flash,
@@ -16,7 +17,7 @@ void drawDangerVignette(
       colors: [
         Colors.transparent,
         Colors.transparent,
-        const Color(0xFFFF2D55).withOpacity(v * 0.55 * pulse),
+        const Color(0xFFFF2D55).o((v * 0.55 * pulse).clamp(0.0, 0.9999)),
       ],
       center: Alignment.center,
       radius: 0.85,
@@ -28,11 +29,11 @@ void drawSweepWarning(Canvas canvas, Size size, GameProvider game) {
   final f = game.sweepWarningFlash;
   if (f < 0.02) return;
   final barH = size.height * 0.035;
-  final paint = Paint()..color = const Color(0xFFFFD60A).withOpacity(f * 0.7);
+  final paint = Paint()..color = const Color(0xFFFFD60A).o((f * 0.7).clamp(0.0, 0.9999));
   canvas.drawRect(Rect.fromLTWH(0, 0, size.width, barH), paint);
   canvas.drawRect(
       Rect.fromLTWH(0, size.height - barH, size.width, barH), paint);
-  paint.color = Colors.black.withOpacity(f * 0.5);
+  paint.color = Colors.black.o((f * 0.5).clamp(0.0, 0.9999));
   const stripeW = 28.0;
   for (double x = 0; x < size.width; x += stripeW * 2) {
     canvas.drawRect(Rect.fromLTWH(x, 0, stripeW, barH), paint);
@@ -51,10 +52,10 @@ void drawNearMissFlash(
   final paint = Paint()
     ..shader = LinearGradient(
       colors: [
-        const Color(0xFF00FFD1).withOpacity(f * 0.6),
+        const Color(0xFF00FFD1).o((f * 0.6).clamp(0.0, 0.9999)),
         Colors.transparent,
         Colors.transparent,
-        const Color(0xFF00FFD1).withOpacity(f * 0.6),
+        const Color(0xFF00FFD1).o((f * 0.6).clamp(0.0, 0.9999)),
       ],
       stops: const [0.0, 0.12, 0.88, 1.0],
     ).createShader(Rect.fromLTWH(0, 0, size.width, size.height));
@@ -76,7 +77,7 @@ void drawComboFlash(Canvas canvas, Size size, GameProvider game) {
   final paint = Paint()
     ..shader = RadialGradient(
       colors: [
-        const Color(0xFFFFD60A).withOpacity(f * 0.35),
+        const Color(0xFFFFD60A).o((f * 0.35).clamp(0.0, 0.9999)),
         Colors.transparent,
       ],
       center: Alignment.center,
@@ -106,7 +107,7 @@ void drawRampageOverlay(
       colors: [
         Colors.transparent,
         Colors.transparent,
-        const Color(0xFFFF6B00).withOpacity(0.22 + pulse * 0.14)
+        const Color(0xFFFF6B00).o((0.22 + pulse * 0.14).clamp(0.0, 0.9999))
       ],
       center: Alignment.center,
       radius: 0.78,
@@ -115,7 +116,7 @@ void drawRampageOverlay(
     paint.shader = null;
 
     final timeRatio = (r.timer / 10.0).clamp(0.0, 1.0);
-    paint.color = const Color(0xFF1A0800).withOpacity(0.8);
+    paint.color = const Color(0xFF1A0800).o((0.8).clamp(0.0, 0.9999));
     canvas.drawRRect(
         RRect.fromRectAndRadius(
             Rect.fromLTWH(barX, barY, barW, barH), const Radius.circular(3)),
@@ -131,7 +132,7 @@ void drawRampageOverlay(
         const Color(0xFFFF6B00), 10,
         letterSpacing: 4);
   } else {
-    paint.color = const Color(0xFF1A0800).withOpacity(0.65);
+    paint.color = const Color(0xFF1A0800).o((0.65).clamp(0.0, 0.9999));
     canvas.drawRRect(
         RRect.fromRectAndRadius(
             Rect.fromLTWH(barX, barY, barW, barH), const Radius.circular(3)),
@@ -139,7 +140,7 @@ void drawRampageOverlay(
     final filled = r.chargeLevel;
     final barColor = filled >= 1.0
         ? const Color(0xFFFF6B00)
-        : const Color(0xFFFF8C00).withOpacity(0.65);
+        : const Color(0xFFFF8C00).o((0.65).clamp(0.0, 0.9999));
     paint.color = barColor;
     canvas.drawRRect(
         RRect.fromRectAndRadius(Rect.fromLTWH(barX, barY, barW * filled, barH),
@@ -151,12 +152,12 @@ void drawRampageOverlay(
           canvas,
           '🔥 RAMPAGE READY — TAP',
           Offset(size.width / 2, barY - 13),
-          const Color(0xFFFF6B00).withOpacity(0.65 + pulse * 0.35),
+          const Color(0xFFFF6B00).o((0.65 + pulse * 0.35).clamp(0.0, 0.9999)),
           9,
           letterSpacing: 2);
     } else {
       drawText(canvas, 'CHARGE', Offset(size.width / 2, barY - 13),
-          const Color(0xFFFF8C00).withOpacity(0.5), 8,
+          const Color(0xFFFF8C00).o((0.5).clamp(0.0, 0.9999)), 8,
           letterSpacing: 2);
     }
   }
@@ -171,7 +172,7 @@ void drawGauntletOverlay(
   final paint = Paint()..style = PaintingStyle.fill;
 
   if (game.escapeFlashTimer > 0) {
-    paint.color = Colors.white.withOpacity(game.escapeFlashTimer * 0.85);
+    paint.color = Colors.white.o((game.escapeFlashTimer * 0.85).clamp(0.0, 0.9999));
     canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), paint);
   }
 
@@ -182,7 +183,7 @@ void drawGauntletOverlay(
   final barX = size.width / 2 - barW / 2;
   const barY = 54.0;
 
-  paint.color = const Color(0xFF150008).withOpacity(0.8);
+  paint.color = const Color(0xFF150008).o((0.8).clamp(0.0, 0.9999));
   canvas.drawRRect(
       RRect.fromRectAndRadius(
           Rect.fromLTWH(barX, barY, barW, 5), const Radius.circular(2)),

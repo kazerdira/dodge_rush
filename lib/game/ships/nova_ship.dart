@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../utils/safe_color.dart';
 import 'ship_painter_helpers.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -135,19 +136,19 @@ void drawNovaShip(Canvas canvas, double r, Color color, double animTick) {
   canvas.drawPath(canopy, paint);
   paint.shader = null;
   // Glare line
-  paint.color = Colors.white.withOpacity(0.45);
+  paint.color = Colors.white.o(0.45);
   canvas.drawLine(Offset(-r * 0.05, -r * 0.72), Offset(r * 0.03, -r * 0.28), paint);
 
   // ── WEAPON CELL — small glowing recess under nose ─────────────────────────
   // One tight glow is fine — it's a real energy source
   paint.maskFilter = const MaskFilter.blur(BlurStyle.normal, 4);
-  paint.color = color.withOpacity(0.7);
+  paint.color = color.o(0.7);
   canvas.drawOval(
     Rect.fromCenter(center: Offset(0, -r * 0.05), width: r * 0.12, height: r * 0.08),
     paint,
   );
   paint.maskFilter = null;
-  paint.color = Colors.white.withOpacity(0.9);
+  paint.color = Colors.white.o(0.9);
   canvas.drawOval(
     Rect.fromCenter(center: Offset(0, -r * 0.05), width: r * 0.06, height: r * 0.04),
     paint,

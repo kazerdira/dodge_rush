@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../utils/safe_color.dart';
 import 'ship_painter_helpers.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -57,8 +58,8 @@ void drawPhantomShip(Canvas canvas, double r, Color color, double animTick) {
   // Centre ridge highlight — raised spine catches light
   paint.shader = LinearGradient(
     colors: [
-      Colors.white.withOpacity(0.30),
-      Colors.white.withOpacity(0.10),
+      Colors.white.o(0.30),
+      Colors.white.o(0.10),
       Colors.transparent,
     ],
     begin: Alignment.topCenter,
@@ -108,8 +109,8 @@ void drawPhantomShip(Canvas canvas, double r, Color color, double animTick) {
   // Tinted canopy — dark with slight blue tint, like real glass
   paint.shader = LinearGradient(
     colors: [
-      const Color(0xFF1A2840).withOpacity(0.95),
-      const Color(0xFF0D1520).withOpacity(0.90),
+      const Color(0xFF1A2840).o(0.95),
+      const Color(0xFF0D1520).o(0.90),
     ],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
@@ -118,14 +119,14 @@ void drawPhantomShip(Canvas canvas, double r, Color color, double animTick) {
   paint.shader = null;
 
   // Glare — single bright streak, no blur needed
-  paint.color = Colors.white.withOpacity(0.55);
+  paint.color = Colors.white.o(0.55);
   canvas.drawOval(Rect.fromLTWH(-r * 0.12, -r * 0.68, r * 0.06, r * 0.26), paint);
 
   // Subtle cockpit edge glow (only slight blur, tight radius)
   paint.style = PaintingStyle.stroke;
   paint.strokeWidth = 1.0;
   paint.maskFilter = const MaskFilter.blur(BlurStyle.normal, 3);
-  paint.color = color.withOpacity(0.5);
+  paint.color = color.o(0.5);
   canvas.drawPath(cockpit, paint);
   paint.maskFilter = null;
   paint.style = PaintingStyle.fill;

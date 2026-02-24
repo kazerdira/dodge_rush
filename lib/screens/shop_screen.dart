@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'dart:math';
 import '../providers/settings_provider.dart';
 import '../theme/app_theme.dart';
+import '../utils/safe_color.dart';
 import '../models/game_models.dart';
 import '../game/ships/ships.dart';
 
@@ -73,7 +74,7 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
             decoration: BoxDecoration(
                 color: AppTheme.card,
                 borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: AppTheme.coinColor.withOpacity(0.3))),
+                border: Border.all(color: AppTheme.coinColor.o(0.3))),
             child: Row(children: [
               const Icon(Icons.circle, color: AppTheme.coinColor, size: 10),
               const SizedBox(width: 6),
@@ -145,7 +146,7 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
                     boxShadow: selected
                         ? [
                             BoxShadow(
-                                color: color.withOpacity(0.18), blurRadius: 16)
+                                color: color.o(0.18), blurRadius: 16)
                           ]
                         : null,
                   ),
@@ -184,10 +185,10 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
                                   padding: const EdgeInsets.symmetric(
                                       horizontal: 7, vertical: 2),
                                   decoration: BoxDecoration(
-                                      color: color.withOpacity(0.15),
+                                      color: color.o(0.15),
                                       borderRadius: BorderRadius.circular(4),
                                       border: Border.all(
-                                          color: color.withOpacity(0.5))),
+                                          color: color.o(0.5))),
                                   child: Text('ACTIVE',
                                       style: TextStyle(
                                           color: color,
@@ -199,7 +200,7 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
                             const SizedBox(height: 2),
                             Text(_skinSubs[i],
                                 style: TextStyle(
-                                    color: color.withOpacity(0.7),
+                                    color: color.o(0.7),
                                     fontSize: 10,
                                     letterSpacing: 1)),
                             const SizedBox(height: 6),
@@ -252,13 +253,13 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
             decoration: BoxDecoration(
               color: AppTheme.card,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppTheme.accent.withOpacity(0.2)),
+              border: Border.all(color: AppTheme.accent.o(0.2)),
             ),
             child: Row(children: [
               Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                      color: AppTheme.accent.withOpacity(0.1),
+                      color: AppTheme.accent.o(0.1),
                       borderRadius: BorderRadius.circular(10)),
                   child: const Icon(Icons.block,
                       color: AppTheme.accent, size: 20)),
@@ -326,13 +327,13 @@ class _TrailBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.08),
+        color: color.o(0.08),
         borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: color.withOpacity(0.25)),
+        border: Border.all(color: color.o(0.25)),
       ),
       child: Text(label,
           style: TextStyle(
-              color: color.withOpacity(0.8),
+              color: color.o(0.8),
               fontSize: 8,
               fontWeight: FontWeight.w900,
               letterSpacing: 1)),
@@ -359,7 +360,7 @@ class _ShipRowPainter extends CustomPainter {
     if (selected) {
       final paint = Paint()
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 14)
-        ..color = color.withOpacity(0.35);
+        ..color = color.o(0.35);
       canvas.drawCircle(Offset(cx, cy), r + 8, paint);
     }
 

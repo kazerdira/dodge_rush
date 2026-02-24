@@ -4,6 +4,7 @@ import 'dart:math';
 import '../models/game_models.dart';
 import '../providers/settings_provider.dart';
 import '../theme/app_theme.dart';
+import '../utils/safe_color.dart';
 import 'game_screen.dart';
 import 'shop_screen.dart';
 import 'settings_screen.dart';
@@ -105,7 +106,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                   width: 38,
                   height: 38,
                   decoration: BoxDecoration(
-                    color: AppTheme.card.withOpacity(0.8),
+                    color: AppTheme.card.o(0.8),
                     borderRadius: BorderRadius.circular(10),
                     border: Border.all(color: AppTheme.cardBorder),
                   ),
@@ -186,7 +187,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                   boxShadow: [
                     BoxShadow(
                       color: AppTheme.accent
-                          .withOpacity(0.3 + _pulseCtrl.value * 0.2),
+                          .o(0.3 + _pulseCtrl.value * 0.2),
                       blurRadius: 24 + _pulseCtrl.value * 16,
                       spreadRadius: 0,
                     ),
@@ -315,7 +316,7 @@ class _GlassChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
       decoration: BoxDecoration(
-        color: AppTheme.card.withOpacity(0.85),
+        color: AppTheme.card.o(0.85),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: AppTheme.cardBorder),
       ),
@@ -412,12 +413,12 @@ class _SpaceBgPainter extends CustomPainter {
     final p = Paint()
       ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 100)
       ..style = PaintingStyle.fill;
-    p.color = AppTheme.purple.withOpacity(0.06 + sin(t * 2 * pi) * 0.02);
+    p.color = AppTheme.purple.o(0.06 + sin(t * 2 * pi) * 0.02);
     canvas.drawCircle(Offset(size.width * 0.15, size.height * 0.4), 200, p);
     p.color =
-        AppTheme.accentAlt.withOpacity(0.05 + cos(t * 2 * pi * 0.7) * 0.015);
+        AppTheme.accentAlt.o(0.05 + cos(t * 2 * pi * 0.7) * 0.015);
     canvas.drawCircle(Offset(size.width * 0.85, size.height * 0.55), 180, p);
-    p.color = AppTheme.accent.withOpacity(0.04);
+    p.color = AppTheme.accent.o(0.04);
     canvas.drawCircle(Offset(size.width * 0.5, size.height * 0.1), 150, p);
     p.maskFilter = null;
 
@@ -426,7 +427,7 @@ class _SpaceBgPainter extends CustomPainter {
     for (final star in _staticStars) {
       final opacity =
           star[3] * (0.5 + sin(t * 2 * pi * 3 + star[0] * 20) * 0.3);
-      sp.color = Colors.white.withOpacity(opacity.clamp(0.05, 0.9));
+      sp.color = Colors.white.o(opacity.clamp(0.05, 0.9));
       canvas.drawCircle(Offset(star[0] * size.width, star[1] * size.height),
           star[2] * 0.8, sp);
     }
@@ -461,7 +462,7 @@ class _ShipPreviewPainter extends CustomPainter {
 
     // Engine glow
     paint.maskFilter = const MaskFilter.blur(BlurStyle.normal, 20);
-    paint.color = color.withOpacity(0.4);
+    paint.color = color.o(0.4);
     canvas.drawCircle(Offset(cx, cy + r * 0.4), r * 0.7, paint);
     paint.maskFilter = null;
 
@@ -481,7 +482,7 @@ class _ShipPreviewPainter extends CustomPainter {
     bodyPath.close();
 
     paint.shader = LinearGradient(
-      colors: [Colors.white.withOpacity(0.9), color, color.withOpacity(0.5)],
+      colors: [Colors.white.o(0.9), color, color.o(0.5)],
       begin: Alignment.topCenter,
       end: Alignment.bottomCenter,
     ).createShader(Rect.fromLTWH(cx - r, cy - r * 1.2, r * 2, r * 2.4));
@@ -497,9 +498,9 @@ class _ShipPreviewPainter extends CustomPainter {
         cy - r * 0.65);
     paint.shader = RadialGradient(
       colors: [
-        AppTheme.accentAlt.withOpacity(0.9),
-        AppTheme.accentAlt.withOpacity(0.3),
-        Colors.black.withOpacity(0.7)
+        AppTheme.accentAlt.o(0.9),
+        AppTheme.accentAlt.o(0.3),
+        Colors.black.o(0.7)
       ],
       center: const Alignment(0, -0.3),
     ).createShader(Rect.fromCircle(center: Offset(cx, cy), radius: r));
@@ -510,7 +511,7 @@ class _ShipPreviewPainter extends CustomPainter {
     final flicker = sin(t * 8) * 0.2 + 0.8;
     paint.maskFilter = const MaskFilter.blur(BlurStyle.normal, 4);
     paint.shader = LinearGradient(
-      colors: [Colors.white, color, color.withOpacity(0)],
+      colors: [Colors.white, color, color.o(0)],
       begin: Alignment.topCenter,
       end: Alignment.bottomCenter,
     ).createShader(

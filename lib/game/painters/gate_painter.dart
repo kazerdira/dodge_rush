@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:math';
 import '../../models/game_models.dart';
+import '../../utils/safe_color.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // GATE PAINTER — Grounded pulse gate
@@ -39,7 +40,7 @@ void drawPulseGate(Canvas canvas, Size size, Obstacle obs) {
     paint.style = PaintingStyle.fill;
 
     // Top-edge specular
-    paint.color = Colors.white.withOpacity(0.08);
+    paint.color = Colors.white.o(0.08);
     canvas.drawRect(Rect.fromLTWH(rect.left, rect.top, rect.width, 2), paint);
 
     // Energy coil recess — inset cavity
@@ -51,18 +52,18 @@ void drawPulseGate(Canvas canvas, Size size, Obstacle obs) {
     canvas.drawRect(coilRect, paint);
 
     // Coil bars — lit metal rings
-    paint.color = Colors.grey.shade700.withOpacity(0.9);
+    paint.color = Colors.grey.shade700.o(0.9);
     for (double y = coilRect.top + 5; y < coilRect.bottom; y += 9) {
       canvas.drawRect(Rect.fromLTWH(coilRect.left + 1, y, coilRect.width - 2, 2.5), paint);
       // Top sheen on each bar
-      paint.color = Colors.white.withOpacity(0.25);
+      paint.color = Colors.white.o(0.25);
       canvas.drawRect(Rect.fromLTWH(coilRect.left + 1, y, coilRect.width - 2, 0.8), paint);
-      paint.color = Colors.grey.shade700.withOpacity(0.9);
+      paint.color = Colors.grey.shade700.o(0.9);
     }
 
     // Coil active glow — energised core, one controlled blur
     paint.maskFilter = const MaskFilter.blur(BlurStyle.normal, 4);
-    paint.color = obs.color.withOpacity(0.65);
+    paint.color = obs.color.o(0.65);
     canvas.drawRect(coilRect.deflate(3), paint);
     paint.maskFilter = null;
   }
@@ -93,12 +94,12 @@ void drawPulseGate(Canvas canvas, Size size, Obstacle obs) {
       // Outer glow
       paint.maskFilter = const MaskFilter.blur(BlurStyle.normal, 3);
       paint.strokeWidth = 2.5;
-      paint.color = obs.color.withOpacity(webIntensity * 0.55);
+      paint.color = obs.color.o(webIntensity * 0.55);
       canvas.drawPath(path, paint);
       paint.maskFilter = null;
       // Crisp white core
       paint.strokeWidth = 1.0;
-      paint.color = Colors.white.withOpacity(webIntensity * 0.75);
+      paint.color = Colors.white.o(webIntensity * 0.75);
       canvas.drawPath(path, paint);
     }
     paint.style = PaintingStyle.fill;
@@ -110,7 +111,7 @@ void drawPulseGate(Canvas canvas, Size size, Obstacle obs) {
     text: TextSpan(
       text: isOpen ? '>>> CLEAR <<<' : '!!! LOCK !!!',
       style: TextStyle(
-        color: (isOpen ? Colors.greenAccent : Colors.redAccent).withOpacity(0.75),
+        color: (isOpen ? Colors.greenAccent : Colors.redAccent).o(0.75),
         fontSize: 11,
         fontWeight: FontWeight.w900,
         letterSpacing: 2,

@@ -1,6 +1,7 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
 import '../../models/game_models.dart';
+import '../../utils/safe_color.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // MINE PAINTER — Grounded, physical design
@@ -27,13 +28,16 @@ void drawMine(Canvas canvas, Size size, Obstacle obs, double animTick) {
 
   switch (type) {
     case MineType.proximity:
-      _drawProximityMine(canvas, cx, cy, r, effectiveColor, opacity, obs.pulsePhase, obs.rotation);
+      _drawProximityMine(canvas, cx, cy, r, effectiveColor, opacity,
+          obs.pulsePhase, obs.rotation);
       break;
     case MineType.tracker:
-      _drawTrackerMine(canvas, cx, cy, r, effectiveColor, opacity, obs.pulsePhase, animTick);
+      _drawTrackerMine(
+          canvas, cx, cy, r, effectiveColor, opacity, obs.pulsePhase, animTick);
       break;
     case MineType.cluster:
-      _drawClusterMine(canvas, cx, cy, r, effectiveColor, opacity, obs.pulsePhase, animTick);
+      _drawClusterMine(
+          canvas, cx, cy, r, effectiveColor, opacity, obs.pulsePhase, animTick);
       break;
   }
 }
@@ -52,8 +56,10 @@ void _drawProximityMine(Canvas canvas, double cx, double cy, double r,
   final hexPath = Path();
   for (int i = 0; i < 6; i++) {
     final a = (pi / 3 * i) - pi / 6;
-    if (i == 0) hexPath.moveTo(cos(a) * r, sin(a) * r);
-    else hexPath.lineTo(cos(a) * r, sin(a) * r);
+    if (i == 0)
+      hexPath.moveTo(cos(a) * r, sin(a) * r);
+    else
+      hexPath.lineTo(cos(a) * r, sin(a) * r);
   }
   hexPath.close();
 
@@ -72,7 +78,8 @@ void _drawProximityMine(Canvas canvas, double cx, double cy, double r,
   // Edge outline
   paint.style = PaintingStyle.stroke;
   paint.strokeWidth = 1.5;
-  paint.color = const Color(0xFF0C0C14).withOpacity(opacity);
+  paint.color =
+      const Color(0xFF0C0C14).o((opacity).clamp(0.0, 0.9999));
   canvas.drawPath(hexPath, paint);
   paint.style = PaintingStyle.fill;
 
@@ -100,29 +107,36 @@ void _drawProximityMine(Canvas canvas, double cx, double cy, double r,
 
     // Spike tip indicator light — small, tight
     paint.maskFilter = const MaskFilter.blur(BlurStyle.normal, 2.5);
-    paint.color = const Color(0xFFFF2200).withOpacity(0.7 * blink * opacity);
+    paint.color = const Color(0xFFFF2200)
+        .o((0.7 * blink * opacity).clamp(0.0, 0.9999));
     canvas.drawCircle(Offset(0, r * 1.50), r * 0.07, paint);
     paint.maskFilter = null;
-    paint.color = Colors.white.withOpacity(0.85 * blink * opacity);
+    paint.color =
+        Colors.white.o((0.85 * blink * opacity).clamp(0.0, 0.9999));
     canvas.drawCircle(Offset(0, r * 1.50), r * 0.04, paint);
 
     canvas.restore();
   }
 
   // Panel screws
-  paint.color = const Color(0xFF3A3A48).withOpacity(opacity);
+  paint.color =
+      const Color(0xFF3A3A48).o((opacity).clamp(0.0, 0.9999));
   for (int i = 0; i < 6; i++) {
     final a = (pi / 3 * i) - pi / 6;
-    canvas.drawCircle(Offset(cos(a) * r * 0.76, sin(a) * r * 0.76), r * 0.065, paint);
-    paint.color = Colors.white.withOpacity(0.12 * opacity);
-    canvas.drawCircle(Offset(cos(a) * r * 0.74, sin(a) * r * 0.74), r * 0.025, paint);
-    paint.color = const Color(0xFF3A3A48).withOpacity(opacity);
+    canvas.drawCircle(
+        Offset(cos(a) * r * 0.76, sin(a) * r * 0.76), r * 0.065, paint);
+    paint.color = Colors.white.o((0.12 * opacity).clamp(0.0, 0.9999));
+    canvas.drawCircle(
+        Offset(cos(a) * r * 0.74, sin(a) * r * 0.74), r * 0.025, paint);
+    paint.color =
+        const Color(0xFF3A3A48).o((opacity).clamp(0.0, 0.9999));
   }
 
   // Warning ring — engraved circle, no blur
   paint.style = PaintingStyle.stroke;
   paint.strokeWidth = 1.2;
-  paint.color = const Color(0xFF661100).withOpacity(0.6 * opacity);
+  paint.color =
+      const Color(0xFF661100).o((0.6 * opacity).clamp(0.0, 0.9999));
   canvas.drawCircle(Offset.zero, r * 0.54, paint);
   paint.style = PaintingStyle.fill;
 
@@ -130,10 +144,12 @@ void _drawProximityMine(Canvas canvas, double cx, double cy, double r,
   paint.color = const Color(0xFF200000);
   canvas.drawCircle(Offset.zero, r * 0.24, paint);
   paint.maskFilter = const MaskFilter.blur(BlurStyle.normal, 5);
-  paint.color = const Color(0xFFFF0000).withOpacity(0.9 * blink * opacity);
+  paint.color = const Color(0xFFFF0000)
+      .o((0.9 * blink * opacity).clamp(0.0, 0.9999));
   canvas.drawCircle(Offset.zero, r * 0.18, paint);
   paint.maskFilter = null;
-  paint.color = Colors.white.withOpacity(0.95 * blink * opacity);
+  paint.color =
+      Colors.white.o((0.95 * blink * opacity).clamp(0.0, 0.9999));
   canvas.drawCircle(Offset.zero, r * 0.08, paint);
 
   canvas.restore();
@@ -148,9 +164,9 @@ void _drawTrackerMine(Canvas canvas, double cx, double cy, double r,
   final scanAngle = animTick * 4.0;
   paint.style = PaintingStyle.stroke;
   paint.strokeWidth = 1.2;
-  paint.color = color.withOpacity(0.25 * opacity);
+  paint.color = color.o((0.25 * opacity).clamp(0.0, 0.9999));
   canvas.drawCircle(Offset(cx, cy), r * 1.55, paint);
-  paint.color = color.withOpacity(0.15 * opacity);
+  paint.color = color.o((0.15 * opacity).clamp(0.0, 0.9999));
   canvas.drawCircle(Offset(cx, cy), r * 2.0, paint);
   paint.style = PaintingStyle.fill;
 
@@ -175,7 +191,8 @@ void _drawTrackerMine(Canvas canvas, double cx, double cy, double r,
   // Body edge — dark outline
   paint.style = PaintingStyle.stroke;
   paint.strokeWidth = 1.5;
-  paint.color = const Color(0xFF080810).withOpacity(opacity);
+  paint.color =
+      const Color(0xFF080810).o((opacity).clamp(0.0, 0.9999));
   canvas.drawOval(
     Rect.fromCenter(center: Offset.zero, width: r * 2, height: r * 2.1),
     paint,
@@ -184,12 +201,16 @@ void _drawTrackerMine(Canvas canvas, double cx, double cy, double r,
 
   // Specular highlight (physical, no blur)
   paint.shader = LinearGradient(
-    colors: [Colors.white.withOpacity(0.18), Colors.transparent],
+    colors: [
+      Colors.white.o((0.18).clamp(0.0, 0.9999)),
+      Colors.transparent
+    ],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   ).createShader(Rect.fromCircle(center: Offset.zero, radius: r));
   canvas.drawOval(
-    Rect.fromCenter(center: Offset(-r * 0.25, -r * 0.25), width: r * 0.8, height: r * 0.6),
+    Rect.fromCenter(
+        center: Offset(-r * 0.25, -r * 0.25), width: r * 0.8, height: r * 0.6),
     paint,
   );
   paint.shader = null;
@@ -200,10 +221,13 @@ void _drawTrackerMine(Canvas canvas, double cx, double cy, double r,
   for (int arc = 0; arc < 2; arc++) {
     final a = scanAngle + arc * pi;
     final arcOpacity = (0.2 + cos(a - scanAngle).abs() * 0.5).clamp(0.0, 1.0);
-    paint.color = color.withOpacity(arcOpacity * opacity);
+    paint.color = color.o((arcOpacity * opacity).clamp(0.0, 0.9999));
     canvas.drawArc(
       Rect.fromCircle(center: Offset.zero, radius: r * 0.70),
-      a, 0.55, false, paint,
+      a,
+      0.55,
+      false,
+      paint,
     );
   }
   paint.style = PaintingStyle.fill;
@@ -214,24 +238,25 @@ void _drawTrackerMine(Canvas canvas, double cx, double cy, double r,
 
   // Iris — radial gradient, single glow
   paint.shader = RadialGradient(
-    colors: [Colors.white, color, color.withOpacity(0.0)],
+    colors: [Colors.white, color, color.o((0.0).clamp(0.0, 0.9999))],
   ).createShader(Rect.fromCircle(center: Offset.zero, radius: r * 0.28));
   canvas.drawCircle(Offset.zero, r * 0.28, paint);
   paint.shader = null;
 
   // Pupil glow — ONE small blur
   paint.maskFilter = const MaskFilter.blur(BlurStyle.normal, 4);
-  paint.color = color.withOpacity(0.75 * opacity);
+  paint.color = color.o((0.75 * opacity).clamp(0.0, 0.9999));
   canvas.drawCircle(Offset.zero, r * 0.22, paint);
   paint.maskFilter = null;
 
   // Glint
-  paint.color = Colors.white.withOpacity(0.85 * opacity);
+  paint.color = Colors.white.o((0.85 * opacity).clamp(0.0, 0.9999));
   canvas.drawCircle(Offset(-r * 0.09, -r * 0.09), r * 0.09, paint);
 
   // Side fins — dark, physically simple
   for (int side = -1; side <= 1; side += 2) {
-    paint.color = const Color(0xFF1A1E28).withOpacity(opacity);
+    paint.color =
+        const Color(0xFF1A1E28).o((opacity).clamp(0.0, 0.9999));
     final fin = Path()
       ..moveTo(side * r * 0.88, -r * 0.22)
       ..lineTo(side * r * 1.38, -r * 0.52)
@@ -241,7 +266,8 @@ void _drawTrackerMine(Canvas canvas, double cx, double cy, double r,
     canvas.drawPath(fin, paint);
     paint.style = PaintingStyle.stroke;
     paint.strokeWidth = 0.8;
-    paint.color = const Color(0xFF0A0A14).withOpacity(opacity);
+    paint.color =
+        const Color(0xFF0A0A14).o((opacity).clamp(0.0, 0.9999));
     canvas.drawPath(fin, paint);
     paint.style = PaintingStyle.fill;
   }
@@ -262,8 +288,10 @@ void _drawClusterMine(Canvas canvas, double cx, double cy, double r,
   final bodyPath = Path();
   for (int i = 0; i < 3; i++) {
     final a = (2 * pi / 3 * i) - pi / 2;
-    if (i == 0) bodyPath.moveTo(cos(a) * r, sin(a) * r);
-    else bodyPath.lineTo(cos(a) * r, sin(a) * r);
+    if (i == 0)
+      bodyPath.moveTo(cos(a) * r, sin(a) * r);
+    else
+      bodyPath.lineTo(cos(a) * r, sin(a) * r);
   }
   bodyPath.close();
 
@@ -281,17 +309,18 @@ void _drawClusterMine(Canvas canvas, double cx, double cy, double r,
   // Casing edge
   paint.style = PaintingStyle.stroke;
   paint.strokeWidth = 2.5;
-  paint.color = color.withOpacity(0.75 * opacity);
+  paint.color = color.o((0.75 * opacity).clamp(0.0, 0.9999));
   canvas.drawPath(bodyPath, paint);
   paint.style = PaintingStyle.fill;
 
   // Seam lines between chambers
   paint.style = PaintingStyle.stroke;
   paint.strokeWidth = 1.5;
-  paint.color = color.withOpacity(0.35 * opacity);
+  paint.color = color.o((0.35 * opacity).clamp(0.0, 0.9999));
   for (int i = 0; i < 3; i++) {
     final a = (2 * pi / 3 * i) - pi / 2;
-    canvas.drawLine(Offset.zero, Offset(cos(a) * r * 0.92, sin(a) * r * 0.92), paint);
+    canvas.drawLine(
+        Offset.zero, Offset(cos(a) * r * 0.92, sin(a) * r * 0.92), paint);
   }
   paint.style = PaintingStyle.fill;
 
@@ -308,15 +337,20 @@ void _drawClusterMine(Canvas canvas, double cx, double cy, double r,
 
     // Sub-mine — radial gradient, no ambient blur
     paint.shader = RadialGradient(
-      colors: [color.withOpacity(0.7), color.withOpacity(0.25), Colors.transparent],
+      colors: [
+        color.o((0.7).clamp(0.0, 0.9999)),
+        color.o((0.25).clamp(0.0, 0.9999)),
+        Colors.transparent
+      ],
       center: const Alignment(-0.25, -0.25),
-    ).createShader(Rect.fromCircle(center: Offset(cx2, cy2), radius: cr * 0.75));
+    ).createShader(
+        Rect.fromCircle(center: Offset(cx2, cy2), radius: cr * 0.75));
     canvas.drawCircle(Offset(cx2, cy2), cr * 0.72, paint);
     paint.shader = null;
 
     // Sub-mine indicator — white dot, one small glow
     paint.maskFilter = const MaskFilter.blur(BlurStyle.normal, 2);
-    paint.color = Colors.white.withOpacity(0.9 * opacity);
+    paint.color = Colors.white.o((0.9 * opacity).clamp(0.0, 0.9999));
     canvas.drawCircle(Offset(cx2, cy2), cr * 0.22, paint);
     paint.maskFilter = null;
 
@@ -325,7 +359,8 @@ void _drawClusterMine(Canvas canvas, double cx, double cy, double r,
       final sa = (pi / 3 * s) + animTick;
       paint.style = PaintingStyle.stroke;
       paint.strokeWidth = 1.2;
-      paint.color = const Color(0xFF666678).withOpacity(opacity * 0.8);
+      paint.color = const Color(0xFF666678)
+          .o((opacity * 0.8).clamp(0.0, 0.9999));
       canvas.drawLine(
         Offset(cx2 + cos(sa) * cr * 0.70, cy2 + sin(sa) * cr * 0.70),
         Offset(cx2 + cos(sa) * cr * 1.02, cy2 + sin(sa) * cr * 1.02),
@@ -337,7 +372,8 @@ void _drawClusterMine(Canvas canvas, double cx, double cy, double r,
     // Chamber ring
     paint.style = PaintingStyle.stroke;
     paint.strokeWidth = 1.2;
-    paint.color = const Color(0xFF0A0A10).withOpacity(opacity);
+    paint.color =
+        const Color(0xFF0A0A10).o((opacity).clamp(0.0, 0.9999));
     canvas.drawCircle(Offset(cx2, cy2), cr, paint);
     paint.style = PaintingStyle.fill;
   }
@@ -346,10 +382,11 @@ void _drawClusterMine(Canvas canvas, double cx, double cy, double r,
   paint.color = const Color(0xFF0A0202);
   canvas.drawCircle(Offset.zero, r * 0.17, paint);
   paint.maskFilter = const MaskFilter.blur(BlurStyle.normal, 4);
-  paint.color = const Color(0xFFCC0000).withOpacity(0.9 * opacity);
+  paint.color =
+      const Color(0xFFCC0000).o((0.9 * opacity).clamp(0.0, 0.9999));
   canvas.drawCircle(Offset.zero, r * 0.12, paint);
   paint.maskFilter = null;
-  paint.color = Colors.white.withOpacity(opacity);
+  paint.color = Colors.white.o((opacity).clamp(0.0, 0.9999));
   canvas.drawCircle(Offset.zero, r * 0.06, paint);
 
   canvas.restore();
@@ -359,7 +396,7 @@ void _drawClusterMine(Canvas canvas, double cx, double cy, double r,
     text: TextSpan(
       text: 'CLUSTER',
       style: TextStyle(
-        color: color.withOpacity(0.6 * opacity),
+        color: color.o((0.6 * opacity).clamp(0.0, 0.9999)),
         fontSize: 7,
         fontWeight: FontWeight.w900,
         letterSpacing: 1.5,
@@ -377,10 +414,10 @@ void _drawMineExplosion(
   final paint = Paint()..style = PaintingStyle.fill;
   // One radial burst — tight blur on the expanding ring
   paint.maskFilter = MaskFilter.blur(BlurStyle.normal, 18 * (1 - t));
-  paint.color = color.withOpacity((1.0 - t) * 0.85);
+  paint.color = color.o(((1.0 - t) * 0.85).clamp(0.0, 0.9999));
   canvas.drawCircle(Offset(cx, cy), r * (1 + t * 2.8), paint);
   paint.maskFilter = null;
   // Bright flash core
-  paint.color = Colors.white.withOpacity((1.0 - t) * 0.55);
+  paint.color = Colors.white.o(((1.0 - t) * 0.55).clamp(0.0, 0.9999));
   canvas.drawCircle(Offset(cx, cy), r * (1 + t * 1.4), paint);
 }

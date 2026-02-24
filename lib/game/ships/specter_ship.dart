@@ -1,5 +1,6 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
+import '../../utils/safe_color.dart';
 import 'ship_painter_helpers.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -42,8 +43,8 @@ void drawSpecterShip(Canvas canvas, double r, Color color, double animTick) {
     paint.style = PaintingStyle.stroke;
     paint.strokeWidth = 0.9;
     paint.color = side < 0
-        ? Colors.white.withOpacity(0.22) // lit side
-        : Colors.white.withOpacity(0.08); // shadow side
+        ? Colors.white.o(0.22) // lit side
+        : Colors.white.o(0.08); // shadow side
     canvas.drawLine(
       Offset(s * r * 0.22, -r * 0.22),
       Offset(s * r * 1.18, r * 0.12),
@@ -56,7 +57,7 @@ void drawSpecterShip(Canvas canvas, double r, Color color, double animTick) {
     paint.style = PaintingStyle.fill;
 
     // Wingtip nav light: a single 2px dot, no bloom
-    paint.color = color.withOpacity(0.8 * pulse);
+    paint.color = color.o(0.8 * pulse);
     canvas.drawCircle(Offset(s * r * 1.12, r * 0.20), 1.8, paint);
   }
 
@@ -123,7 +124,7 @@ void drawSpecterShip(Canvas canvas, double r, Color color, double animTick) {
   paint.shader = null;
 
   // Centre ridge specular — very narrow bright line at the spine
-  paint.color = Colors.white.withOpacity(0.16);
+  paint.color = Colors.white.o(0.16);
   canvas.drawLine(Offset(0, -r * 1.28), Offset(0, r * 0.55), paint);
 
   // ── PANEL ENGRAVING ───────────────────────────────────────────────────────
@@ -156,7 +157,7 @@ void drawSpecterShip(Canvas canvas, double r, Color color, double animTick) {
   );
   // Glowing core slit — subtle, tight blur
   paint.maskFilter = const MaskFilter.blur(BlurStyle.normal, 2.5);
-  paint.color = color.withOpacity(0.80 * pulse);
+  paint.color = color.o(0.80 * pulse);
   canvas.drawRRect(
     RRect.fromRectAndRadius(
       Rect.fromCenter(center: Offset(0, -r * 0.44), width: r * 0.44, height: r * 0.065),
@@ -166,7 +167,7 @@ void drawSpecterShip(Canvas canvas, double r, Color color, double animTick) {
   );
   paint.maskFilter = null;
   // White core line — no blur
-  paint.color = Colors.white.withOpacity(0.78);
+  paint.color = Colors.white.o(0.78);
   canvas.drawRRect(
     RRect.fromRectAndRadius(
       Rect.fromCenter(center: Offset(0, -r * 0.44), width: r * 0.26, height: r * 0.028),

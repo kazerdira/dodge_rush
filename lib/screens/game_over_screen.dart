@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'dart:math';
 import '../providers/settings_provider.dart';
 import '../theme/app_theme.dart';
+import '../utils/safe_color.dart';
 import 'game_screen.dart';
 import 'home_screen.dart';
 
@@ -174,8 +175,8 @@ class _GameOverScreenState extends State<GameOverScreen> with TickerProviderStat
                         height: 56,
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: AppTheme.coinColor.withOpacity(0.6), width: 1.5),
-                          color: AppTheme.coinColor.withOpacity(0.07),
+                          border: Border.all(color: AppTheme.coinColor.o(0.6), width: 1.5),
+                          color: AppTheme.coinColor.o(0.07),
                         ),
                         child: const Row(mainAxisAlignment: MainAxisAlignment.center, children: [
                           Icon(Icons.play_circle_outline, color: AppTheme.coinColor, size: 20),
@@ -307,15 +308,15 @@ class _GameOverBgPainter extends CustomPainter {
     canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), Paint()..color = AppTheme.bg);
 
     final p = Paint()..maskFilter = const MaskFilter.blur(BlurStyle.normal, 80);
-    p.color = AppTheme.danger.withOpacity(0.04 + sin(t * 2 * pi) * 0.015);
+    p.color = AppTheme.danger.o(0.04 + sin(t * 2 * pi) * 0.015);
     canvas.drawCircle(Offset(size.width * 0.8, size.height * 0.3), 200, p);
-    p.color = AppTheme.purple.withOpacity(0.04);
+    p.color = AppTheme.purple.o(0.04);
     canvas.drawCircle(Offset(size.width * 0.2, size.height * 0.7), 160, p);
     p.maskFilter = null;
 
     final sp = Paint()..style = PaintingStyle.fill;
     for (final star in _stars) {
-      sp.color = Colors.white.withOpacity((star[3] * 0.5).clamp(0.05, 0.5));
+      sp.color = Colors.white.o((star[3] * 0.5).clamp(0.05, 0.5));
       canvas.drawCircle(Offset(star[0] * size.width, star[1] * size.height), star[2] * 0.6, sp);
     }
   }
