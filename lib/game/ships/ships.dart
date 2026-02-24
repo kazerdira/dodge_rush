@@ -10,3 +10,4 @@ export 'nova_ship.dart';
 export 'inferno_ship.dart';
 export 'specter_ship.dart';
 export 'titan_ship.dart';
+export 'sovereign_ship.dart';

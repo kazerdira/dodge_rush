@@ -9,7 +9,7 @@ import '../../utils/safe_color.dart';
 // gap are the ONLY glow — they're justified as actual energy discharge.
 // ─────────────────────────────────────────────────────────────────────────────
 
-void drawPulseGate(Canvas canvas, Size size, Obstacle obs) {
+void drawPulseGate(Canvas canvas, Size size, PulseGateEntity obs) {
   final openness = (sin(obs.pulsePhase) + 1) / 2;
   final gapHalf = obs.gapHalfWidth * openness * size.width;
   final gapCX = obs.gapCenterX * size.width;
@@ -21,7 +21,11 @@ void drawPulseGate(Canvas canvas, Size size, Obstacle obs) {
   void drawGatePillar(Rect rect, bool isLeft) {
     // Main housing — lit top-left vs shadow right
     paint.shader = LinearGradient(
-      colors: [const Color(0xFF2A2A38), const Color(0xFF141418), const Color(0xFF080810)],
+      colors: [
+        const Color(0xFF2A2A38),
+        const Color(0xFF141418),
+        const Color(0xFF080810)
+      ],
       begin: Alignment.topLeft,
       end: Alignment.bottomRight,
     ).createShader(rect);
@@ -34,7 +38,9 @@ void drawPulseGate(Canvas canvas, Size size, Obstacle obs) {
     paint.strokeWidth = 0.7;
     paint.color = const Color(0xFF0A0A10);
     canvas.drawRect(rect, paint);
-    for (double y = rect.top + wallH * 0.25; y < rect.bottom; y += wallH * 0.25) {
+    for (double y = rect.top + wallH * 0.25;
+        y < rect.bottom;
+        y += wallH * 0.25) {
       canvas.drawLine(Offset(rect.left, y), Offset(rect.right, y), paint);
     }
     paint.style = PaintingStyle.fill;
@@ -54,10 +60,12 @@ void drawPulseGate(Canvas canvas, Size size, Obstacle obs) {
     // Coil bars — lit metal rings
     paint.color = Colors.grey.shade700.o(0.9);
     for (double y = coilRect.top + 5; y < coilRect.bottom; y += 9) {
-      canvas.drawRect(Rect.fromLTWH(coilRect.left + 1, y, coilRect.width - 2, 2.5), paint);
+      canvas.drawRect(
+          Rect.fromLTWH(coilRect.left + 1, y, coilRect.width - 2, 2.5), paint);
       // Top sheen on each bar
       paint.color = Colors.white.o(0.25);
-      canvas.drawRect(Rect.fromLTWH(coilRect.left + 1, y, coilRect.width - 2, 0.8), paint);
+      canvas.drawRect(
+          Rect.fromLTWH(coilRect.left + 1, y, coilRect.width - 2, 0.8), paint);
       paint.color = Colors.grey.shade700.o(0.9);
     }
 
@@ -88,7 +96,10 @@ void drawPulseGate(Canvas canvas, Size size, Obstacle obs) {
       final yOffset = wallY + wallH * (0.22 + i * 0.22);
       final path = Path()..moveTo(gapCX - gapHalf, yOffset);
       for (double x = gapCX - gapHalf; x <= gapCX + gapHalf; x += 8) {
-        final erratic = (Random((x * yOffset * (i + 1)).floor()).nextDouble() - 0.5) * 12 * webIntensity;
+        final erratic =
+            (Random((x * yOffset * (i + 1)).floor()).nextDouble() - 0.5) *
+                12 *
+                webIntensity;
         path.lineTo(x, yOffset + erratic);
       }
       // Outer glow

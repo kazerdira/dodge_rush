@@ -47,29 +47,28 @@ extension SpawnerSystem on GameProvider {
         break;
     }
 
-    // Sector bonuses — extra obstacles per sector
-    if (state.sector >= 3 &&
-        pattern == PatternType.gapWall &&
-        _rng.nextDouble() < 0.4) {
-      spawnFloatingAsteroid();
-    }
-    if (state.sector >= 4 && _rng.nextDouble() < 0.35) {
-      spawnExtraMine();
-    }
-    if (state.sector >= 5 && _rng.nextDouble() < 0.4) {
-      spawnGapWall();
+    // Sector bonuses from config
+    for (final bonus in sectorConfig.bonuses) {
+      if (bonus.kind == 'asteroid' &&
+          pattern == PatternType.gapWall &&
+          _rng.nextDouble() < bonus.chance) {
+        spawnFloatingAsteroid();
+      } else if (bonus.kind == 'mine' && _rng.nextDouble() < bonus.chance) {
+        spawnExtraMine();
+      } else if (bonus.kind == 'gapWall' && _rng.nextDouble() < bonus.chance) {
+        spawnGapWall();
+      }
     }
   }
 
   void spawnExtraMine() {
     final mType = _pickMineType();
-    obstacles.add(Obstacle(
+    obstacles.add(MineEntity(
       x: 0.05 + _rng.nextDouble() * 0.9,
       y: -0.08 - _rng.nextDouble() * 0.1,
       width: 0.055,
       height: 0.055,
       speed: 0.003 + state.difficulty * 0.0008,
-      type: ObstacleType.mine,
       color: _mineColor(mType),
       mineType: mType,
       rotationSpeed: (_rng.nextDouble() - 0.5) * 0.08,
@@ -77,47 +76,25 @@ extension SpawnerSystem on GameProvider {
   }
 
   WallTier _pickWallTier() {
-    final d = state.difficulty;
-    final s = state.sector;
-    final roll = _rng.nextDouble();
-    if (s >= 5) {
-      if (roll < 0.05) return WallTier.fragile;
-      if (roll < 0.20) return WallTier.standard;
-      if (roll < 0.55) return WallTier.reinforced;
-      return WallTier.armored;
+    final tiers = sectorConfig.tiers;
+    final totalW = tiers.fold<double>(0, (s, e) => s + e.weight);
+    var roll = _rng.nextDouble() * totalW;
+    for (final e in tiers) {
+      roll -= e.weight;
+      if (roll <= 0) return e.tier;
     }
-    if (s >= 4 || d >= 3.0) {
-      if (roll < 0.10) return WallTier.fragile;
-      if (roll < 0.30) return WallTier.standard;
-      if (roll < 0.65) return WallTier.reinforced;
-      return WallTier.armored;
-    }
-    if (s >= 3 || d >= 1.5) {
-      if (roll < 0.15) return WallTier.fragile;
-      if (roll < 0.45) return WallTier.standard;
-      if (roll < 0.82) return WallTier.reinforced;
-      return WallTier.armored;
-    }
-    if (s >= 2 || d >= 0.5) {
-      if (roll < 0.3) return WallTier.fragile;
-      if (roll < 0.75) return WallTier.standard;
-      return WallTier.reinforced;
-    }
-    return roll < 0.6 ? WallTier.fragile : WallTier.standard;
+    return tiers.last.tier;
   }
 
   MineType _pickMineType() {
-    final d = state.difficulty;
-    final s = state.sector;
-    final roll = _rng.nextDouble();
-    if (s >= 4 || d >= 2.0) {
-      if (roll < 0.35) return MineType.proximity;
-      if (roll < 0.65) return MineType.tracker;
-      return MineType.cluster;
+    final mines = sectorConfig.mines;
+    final totalW = mines.fold<double>(0, (s, e) => s + e.weight);
+    var roll = _rng.nextDouble() * totalW;
+    for (final e in mines) {
+      roll -= e.weight;
+      if (roll <= 0) return e.type;
     }
-    if (s >= 3 || d >= 1.0)
-      return roll < 0.55 ? MineType.proximity : MineType.tracker;
-    return MineType.proximity;
+    return mines.last.type;
   }
 
   Color _mineColor(MineType type) {
@@ -143,10 +120,10 @@ extension SpawnerSystem on GameProvider {
     double referenceCenter = _lastGapCenter;
     double bestY = -999.0;
     for (final obs in obstacles) {
-      if (obs.type != ObstacleType.laserWall) continue;
+      if (obs is! LaserWallEntity) continue;
       if (obs.x < 0.02) {
         for (final obs2 in obstacles) {
-          if (obs2.type == ObstacleType.laserWall &&
+          if (obs2 is LaserWallEntity &&
               obs2.x > 0.05 &&
               (obs2.y - obs.y).abs() < 0.015) {
             final gc = (obs.width + obs2.x) / 2.0;
@@ -170,7 +147,7 @@ extension SpawnerSystem on GameProvider {
 
     double lowestSpawnY = -0.055;
     for (final obs in obstacles) {
-      if (obs.type != ObstacleType.laserWall) continue;
+      if (obs is! LaserWallEntity) continue;
       if (obs.y < 0.0 && obs.y < lowestSpawnY) lowestSpawnY = obs.y;
     }
     final spawnY = lowestSpawnY - _minRowSeparation;
@@ -180,26 +157,24 @@ extension SpawnerSystem on GameProvider {
     final h = tierData.thickness;
 
     if (gapLeft > 0.02) {
-      obstacles.add(Obstacle(
+      obstacles.add(LaserWallEntity(
           x: 0,
           y: spawnY,
           width: gapLeft,
           height: h,
           speed: spd,
-          type: ObstacleType.laserWall,
           color: wallCol,
           wallTier: tier,
           sectorIndex: state.sector));
     }
     final rightStart = gapLeft + gapWidth;
     if (rightStart < 0.98) {
-      obstacles.add(Obstacle(
+      obstacles.add(LaserWallEntity(
           x: rightStart,
           y: spawnY,
           width: 1.0 - rightStart,
           height: h,
           speed: spd,
-          type: ObstacleType.laserWall,
           color: wallCol,
           wallTier: tier,
           sectorIndex: state.sector));
@@ -220,25 +195,23 @@ extension SpawnerSystem on GameProvider {
     final gap1Center = leftSide ? 0.20 : 0.70;
     final gap1Left = gap1Center - gw / 2;
     if (gap1Left > 0.02)
-      obstacles.add(Obstacle(
+      obstacles.add(LaserWallEntity(
           x: 0,
           y: -0.06,
           width: gap1Left,
           height: h,
           speed: spd,
-          type: ObstacleType.laserWall,
           color: wallCol,
           wallTier: tier,
           sectorIndex: state.sector));
     final gap1Right = gap1Left + gw;
     if (gap1Right < 0.98)
-      obstacles.add(Obstacle(
+      obstacles.add(LaserWallEntity(
           x: gap1Right,
           y: -0.06,
           width: 1.0 - gap1Right,
           height: h,
           speed: spd,
-          type: ObstacleType.laserWall,
           color: wallCol,
           wallTier: tier,
           sectorIndex: state.sector));
@@ -246,25 +219,23 @@ extension SpawnerSystem on GameProvider {
     final gap2Center = leftSide ? 0.70 : 0.20;
     final gap2Left = gap2Center - gw / 2;
     if (gap2Left > 0.02)
-      obstacles.add(Obstacle(
+      obstacles.add(LaserWallEntity(
           x: 0,
           y: -0.42,
           width: gap2Left,
           height: h,
           speed: spd,
-          type: ObstacleType.laserWall,
           color: wallCol,
           wallTier: tier,
           sectorIndex: state.sector));
     final gap2Right = gap2Left + gw;
     if (gap2Right < 0.98)
-      obstacles.add(Obstacle(
+      obstacles.add(LaserWallEntity(
           x: gap2Right,
           y: -0.42,
           width: 1.0 - gap2Right,
           height: h,
           speed: spd,
-          type: ObstacleType.laserWall,
           color: wallCol,
           wallTier: tier,
           sectorIndex: state.sector));
@@ -276,11 +247,7 @@ extension SpawnerSystem on GameProvider {
     const cols = 6;
     const colW = 1.0 / cols;
     final colIndices = List.generate(cols, (i) => i)..shuffle(_rng);
-    final mineCount = state.sector >= 4
-        ? 5
-        : state.sector >= 3
-            ? 4
-            : 3;
+    final mineCount = sectorConfig.minefieldCount;
     final usedCols = colIndices.take(mineCount).toList();
     for (int i = 0; i < usedCols.length; i++) {
       final col = usedCols[i];
@@ -288,13 +255,12 @@ extension SpawnerSystem on GameProvider {
           colW * col + colW * 0.5 + (_rng.nextDouble() - 0.5) * colW * 0.3;
       final yOffset = -0.06 - (i * 0.09) - _rng.nextDouble() * 0.03;
       final mType = _pickMineType();
-      obstacles.add(Obstacle(
+      obstacles.add(MineEntity(
         x: x.clamp(0.05, 0.95),
         y: yOffset,
         width: mineSize,
         height: mineSize,
         speed: spd,
-        type: ObstacleType.mine,
         color: _mineColor(mType),
         mineType: mType,
         rotationSpeed: (_rng.nextDouble() - 0.5) * 0.08,
@@ -306,13 +272,12 @@ extension SpawnerSystem on GameProvider {
     final yPos = player.y - 0.12 + _rng.nextDouble() * 0.08;
     final fromLeft = _rng.nextBool();
     final sweepSpd = 0.28 + state.difficulty * 0.04 + (state.sector - 1) * 0.04;
-    obstacles.add(Obstacle(
+    obstacles.add(SweepBeamEntity(
       x: 0,
       y: yPos.clamp(0.15, 0.75),
       width: 1.0,
       height: 0.032,
       speed: 0.0008,
-      type: ObstacleType.sweepBeam,
       color: const Color(0xFFFF0080),
       sweepFromLeft: fromLeft,
       sweepSpeed: sweepSpd,
@@ -326,13 +291,12 @@ extension SpawnerSystem on GameProvider {
     final halfGap =
         (0.16 - state.difficulty * 0.008 - (state.sector - 1) * 0.006)
             .clamp(0.10, 0.16);
-    obstacles.add(Obstacle(
+    obstacles.add(PulseGateEntity(
       x: 0,
       y: -0.06,
       width: 1.0,
       height: 0.05,
       speed: spd,
-      type: ObstacleType.pulseGate,
       color: const Color(0xFF00CFFF),
       gapCenterX: centerX,
       gapHalfWidth: halfGap,
@@ -343,13 +307,12 @@ extension SpawnerSystem on GameProvider {
   void spawnFloatingAsteroid() {
     final size = 0.025 + _rng.nextDouble() * 0.022;
     final spd = 0.004 + state.difficulty * 0.0015 + (state.sector - 1) * 0.0005;
-    obstacles.add(Obstacle(
+    obstacles.add(AsteroidEntity(
       x: 0.06 + _rng.nextDouble() * 0.88,
       y: -0.15 - _rng.nextDouble() * 0.1,
       width: size,
       height: size,
       speed: spd * (0.8 + _rng.nextDouble() * 0.5),
-      type: ObstacleType.asteroid,
       color: const Color(0xFF8B6E4E),
       rotationSpeed: (_rng.nextDouble() - 0.5) * 0.09,
       shape: _generateAsteroidShape(1.0),
@@ -409,7 +372,6 @@ extension SpawnerSystem on GameProvider {
       reward = TreasureReward.weaponLaser;
     else {
       const basics = [
-        TreasureReward.slowTime,
         TreasureReward.extraLife,
         TreasureReward.coins,
         TreasureReward.shield

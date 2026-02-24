@@ -279,13 +279,6 @@ class _GameCanvas extends StatelessWidget {
             ),
           ),
 
-          // Slow time tint — cheap, game-state driven
-          if (game.state.isSlowActive)
-            Positioned.fill(
-                child: IgnorePointer(
-                    child: Container(
-                        color: AppTheme.slowColor.o(0.04)))),
-
           // Bomb flash — fades via detonationTimer, no setState needed
           if (game.activeBomb != null)
             Positioned.fill(
@@ -302,8 +295,8 @@ class _GameCanvas extends StatelessWidget {
                 child: IgnorePointer(
                     child: Container(
               decoration: BoxDecoration(
-                  border: Border.all(
-                      color: AppTheme.accentAlt.o(0.5), width: 2)),
+                  border:
+                      Border.all(color: AppTheme.accentAlt.o(0.5), width: 2)),
             ))),
 
           // Sector vignette
@@ -438,9 +431,7 @@ class _BombButtonState extends State<_BombButton> {
             height: 76,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: _pressed
-                  ? bombColor.o(0.4)
-                  : AppTheme.card.o(0.9),
+              color: _pressed ? bombColor.o(0.4) : AppTheme.card.o(0.9),
               border: Border.all(
                   color: bombColor.o(_pressed
                       ? 1.0
@@ -553,10 +544,8 @@ class _SectorBannerState extends State<_SectorBanner>
               padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
               decoration: BoxDecoration(
                 border: Border(
-                  top: BorderSide(
-                      color: pal.accentA.o(0.7), width: 1.5),
-                  bottom: BorderSide(
-                      color: pal.accentA.o(0.7), width: 1.5),
+                  top: BorderSide(color: pal.accentA.o(0.7), width: 1.5),
+                  bottom: BorderSide(color: pal.accentA.o(0.7), width: 1.5),
                 ),
                 gradient: LinearGradient(
                   colors: [
@@ -684,9 +673,7 @@ class _PauseOverlay extends StatelessWidget {
         const SizedBox(height: 8),
         Text(pal.name,
             style: GoogleFonts.rajdhani(
-                color: pal.accentA.o(0.6),
-                fontSize: 12,
-                letterSpacing: 4)),
+                color: pal.accentA.o(0.6), fontSize: 12, letterSpacing: 4)),
         Text('SECTOR ${game.state.sector}',
             style: GoogleFonts.rajdhani(
                 color: AppTheme.textSecondary, fontSize: 11, letterSpacing: 3)),
@@ -810,8 +797,7 @@ class _HUD extends StatelessWidget {
               decoration: BoxDecoration(
                 color: const Color(0xFFFF6B2B).o(0.12),
                 borderRadius: BorderRadius.circular(12),
-                border:
-                    Border.all(color: const Color(0xFFFF6B2B).o(0.4)),
+                border: Border.all(color: const Color(0xFFFF6B2B).o(0.4)),
               ),
               child: Row(children: [
                 const Text('💥', style: TextStyle(fontSize: 10)),
@@ -842,7 +828,7 @@ class _HUD extends StatelessWidget {
         ]),
 
         // Power-up bars
-        if (game.state.isShieldActive || game.state.isSlowActive) ...[
+        if (game.state.isShieldActive) ...[
           const SizedBox(height: 8),
           Row(children: [
             if (game.state.isShieldActive) ...[
@@ -852,11 +838,6 @@ class _HUD extends StatelessWidget {
                   progress: game.state.shieldTimer / 6.0),
               const SizedBox(width: 8),
             ],
-            if (game.state.isSlowActive)
-              _PowerBar(
-                  label: 'SLOW',
-                  color: AppTheme.slowColor,
-                  progress: game.state.slowTimer / 5.0),
           ]),
         ],
 

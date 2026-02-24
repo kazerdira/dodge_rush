@@ -12,12 +12,12 @@ import '../../utils/safe_color.dart';
 // • Metal rendered with radial gradients (sheen), not flat colors
 // ─────────────────────────────────────────────────────────────────────────────
 
-void drawMine(Canvas canvas, Size size, Obstacle obs, double animTick) {
+void drawMine(Canvas canvas, Size size, MineEntity obs, double animTick) {
   final cx = (obs.x + obs.width / 2) * size.width;
   final cy = (obs.y + obs.height / 2) * size.height;
   final r = obs.width * size.width * 0.5;
   final opacity = obs.damageOpacity;
-  final type = obs.mineType ?? MineType.proximity;
+  final type = obs.mineType;
   final effectiveColor =
       Color.lerp(obs.color, const Color(0xFF777777), obs.greyShift)!;
 

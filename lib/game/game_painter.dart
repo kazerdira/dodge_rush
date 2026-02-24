@@ -11,13 +11,40 @@ import 'painters/mine_painter.dart';
 import 'painters/bullet_painter.dart';
 import 'painters/boss_painter.dart' as boss_p;
 import 'painters/overlay_painter.dart' as overlay_p;
+import 'painter_registry.dart';
 import 'ships/ships.dart';
 
 class GamePainter extends CustomPainter {
   final GameProvider game;
   final double animTick;
 
-  GamePainter(this.game, this.animTick);
+  static bool _paintersRegistered = false;
+
+  GamePainter(this.game, this.animTick) {
+    if (!_paintersRegistered) {
+      _registerPainters();
+      _paintersRegistered = true;
+    }
+  }
+
+  static void _registerPainters() {
+    final reg = PainterRegistry.instance;
+    reg.register('laserWall', (canvas, size, entity, tick) {
+      drawLaserWall(canvas, size, entity as LaserWallEntity, tick);
+    });
+    reg.register('asteroid', (canvas, size, entity, tick) {
+      _drawAsteroidStatic(canvas, size, entity as AsteroidEntity, tick);
+    });
+    reg.register('mine', (canvas, size, entity, tick) {
+      drawMine(canvas, size, entity as MineEntity, tick);
+    });
+    reg.register('sweepBeam', (canvas, size, entity, tick) {
+      _drawSweepBeamStatic(canvas, size, entity as SweepBeamEntity);
+    });
+    reg.register('pulseGate', (canvas, size, entity, tick) {
+      drawPulseGate(canvas, size, entity as PulseGateEntity);
+    });
+  }
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -231,16 +258,15 @@ class GamePainter extends CustomPainter {
 
   void _drawGhostImages(Canvas canvas, Size size) {
     for (final g in game.ghostImages) {
-      final life = g['life'] as double;
-      final cx = (g['x'] as double) * size.width;
-      final cy = (g['y'] as double) * size.height;
-      final r = (g['size'] as double) * 0.9;
+      final cx = g.x * size.width;
+      final cy = g.y * size.height;
+      final r = g.size * 0.9;
       final path = buildSpecterPath(cx, cy, r);
       final paint = Paint()
-        ..color = AppTheme.slowColor.o(life * 0.25)
+        ..color = AppTheme.slowColor.o(g.life * 0.25)
         ..style = PaintingStyle.fill;
       canvas.drawPath(path, paint);
-      paint.color = AppTheme.slowColor.o(life * 0.5);
+      paint.color = AppTheme.slowColor.o(g.life * 0.5);
       paint.style = PaintingStyle.stroke;
       paint.strokeWidth = 1.0;
       canvas.drawPath(path, paint);
@@ -248,29 +274,15 @@ class GamePainter extends CustomPainter {
   }
 
   void _drawObstacles(Canvas canvas, Size size) {
+    final reg = PainterRegistry.instance;
     for (final obs in game.obstacles) {
       if (obs.isFullyDead) continue;
-      switch (obs.type) {
-        case ObstacleType.laserWall:
-          drawLaserWall(canvas, size, obs, animTick);
-          break;
-        case ObstacleType.asteroid:
-          _drawAsteroid(canvas, size, obs);
-          break;
-        case ObstacleType.mine:
-          drawMine(canvas, size, obs, animTick);
-          break;
-        case ObstacleType.sweepBeam:
-          _drawSweepBeam(canvas, size, obs);
-          break;
-        case ObstacleType.pulseGate:
-          drawPulseGate(canvas, size, obs);
-          break;
-      }
+      reg.paint(canvas, size, obs, animTick);
     }
   }
 
-  void _drawAsteroid(Canvas canvas, Size size, Obstacle obs) {
+  static void _drawAsteroidStatic(
+      Canvas canvas, Size size, AsteroidEntity obs, double animTick) {
     if (obs.shape.isEmpty) return;
     final cx = (obs.x + obs.width / 2) * size.width;
     final cy = (obs.y + obs.height / 2) * size.height;
@@ -374,7 +386,8 @@ class GamePainter extends CustomPainter {
     canvas.restore();
   }
 
-  void _drawSweepBeam(Canvas canvas, Size size, Obstacle obs) {
+  static void _drawSweepBeamStatic(
+      Canvas canvas, Size size, SweepBeamEntity obs) {
     if (obs.sweepDone) return;
     final beamY = obs.y * size.height;
     final beamH = obs.height * size.height;
@@ -427,8 +440,19 @@ class GamePainter extends CustomPainter {
         paint);
     paint.color = obs.color;
     canvas.drawRect(Rect.fromLTWH(headX - 8, beamY - 6, 16, 4), paint);
-    _drawText(canvas, 'DANGER', Offset(headX, beamY - 26), Colors.white, 10,
-        letterSpacing: 2);
+    final tp = TextPainter(
+      text: TextSpan(
+          text: 'DANGER',
+          style: const TextStyle(
+              color: Colors.white,
+              fontSize: 10,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 2,
+              fontFamily: 'Courier')),
+      textDirection: TextDirection.ltr,
+    );
+    tp.layout();
+    tp.paint(canvas, Offset(headX - tp.width / 2, beamY - 26 - tp.height / 2));
   }
 
   void _drawCoins(Canvas canvas, Size size) {
@@ -478,10 +502,6 @@ class GamePainter extends CustomPainter {
           color = AppTheme.accentAlt;
           label = 'SHL';
           break;
-        case PowerUpType.slowTime:
-          color = AppTheme.slowColor;
-          label = 'SLW';
-          break;
         case PowerUpType.extraLife:
           color = AppTheme.danger;
           label = '♥';
@@ -522,69 +542,55 @@ class GamePainter extends CustomPainter {
 
   void _drawParticles(Canvas canvas, Size size) {
     // ── SHAPE-AWARE PARTICLE RENDERER ────────────────────────────────────────
-    // Reads 'shape' key set by the particle system:
-    //   'dot'   — circle (coins, power-ups)
-    //   'spark' — tiny bright circle, no halo (bullet hit, metal graze)
-    //   'ember' — round glowing orb with hot core (fire, energy)
-    //   'shard' — thin spinning rectangle (metal wall debris)
-    //   'chunk' — wider tumbling rounded rect (stone/asteroid rubble)
     final paint = Paint()..style = PaintingStyle.fill;
 
     for (final p in game.particles) {
-      final life = p['life'] as double;
-      if (life <= 0) continue;
-      final col = p['color'] as Color;
-      final rawSize = p['size'] as double;
-      final pSize = rawSize * life;
-      final px = (p['x'] as double) * size.width;
-      final py = (p['y'] as double) * size.height;
-      final shape = p['shape'] as String? ?? 'dot';
+      if (p.life <= 0) continue;
+      final col = p.color;
+      final pSize = p.size * p.life;
+      final px = p.x * size.width;
+      final py = p.y * size.height;
 
-      switch (shape) {
+      switch (p.shape) {
         // ── DOT ────────────────────────────────────────────────────────────
-        case 'dot':
-          paint.color = col.o((life * 0.16).clamp(0.0, 1.0));
+        case ParticleShape.dot:
+          paint.color = col.o((p.life * 0.16).clamp(0.0, 1.0));
           canvas.drawCircle(Offset(px, py), pSize * 1.9, paint);
-          paint.color = col.o(life.clamp(0.0, 1.0));
+          paint.color = col.o(p.life.clamp(0.0, 1.0));
           canvas.drawCircle(Offset(px, py), pSize, paint);
           break;
 
         // ── SPARK: tiny bright needle, fades quickly ───────────────────────
-        case 'spark':
-          paint.color = Colors.white.o(life.clamp(0.0, 1.0));
+        case ParticleShape.spark:
+          paint.color = Colors.white.o(p.life.clamp(0.0, 1.0));
           canvas.drawCircle(
               Offset(px, py), (pSize * 0.9).clamp(0.4, 3.2), paint);
-          paint.color = col.o((life * 0.6).clamp(0.0, 1.0));
+          paint.color = col.o((p.life * 0.6).clamp(0.0, 1.0));
           canvas.drawCircle(
               Offset(px, py), (pSize * 0.55).clamp(0.3, 2.0), paint);
           break;
 
         // ── EMBER: glowing orb with hot bright core ────────────────────────
-        case 'ember':
-          paint.color = col.o((life * 0.11).clamp(0.0, 1.0));
+        case ParticleShape.ember:
+          paint.color = col.o((p.life * 0.11).clamp(0.0, 1.0));
           canvas.drawCircle(Offset(px, py), pSize * 2.3, paint);
-          paint.color = col.o((life * 0.68).clamp(0.0, 1.0));
+          paint.color = col.o((p.life * 0.68).clamp(0.0, 1.0));
           canvas.drawCircle(Offset(px, py), pSize, paint);
-          paint.color = Colors.white.o((life * 0.52).clamp(0.0, 1.0));
+          paint.color = Colors.white.o((p.life * 0.52).clamp(0.0, 1.0));
           canvas.drawCircle(Offset(px, py), pSize * 0.36, paint);
           break;
 
         // ── SHARD: thin elongated rectangle, spinning metal debris ─────────
-        // Represents: wall panels, mine spike tips, ship hull fragments.
-        case 'shard':
-          final angle = p['angle'] as double? ?? 0.0;
-          final aspect = p['aspect'] as double? ?? 0.22;
+        case ParticleShape.shard:
           final w = pSize;
-          final h = (pSize * aspect).clamp(w < 0.6 ? w : 0.6, w);
+          final h = (pSize * p.aspect).clamp(w < 0.6 ? w : 0.6, w);
           canvas.save();
           canvas.translate(px, py);
-          canvas.rotate(angle);
-          // Main shard body
-          paint.color = col.o(life.clamp(0.0, 1.0));
+          canvas.rotate(p.angle);
+          paint.color = col.o(p.life.clamp(0.0, 1.0));
           canvas.drawRect(
               Rect.fromCenter(center: Offset.zero, width: w, height: h), paint);
-          // Single specular gleam on lit face (top-left light source)
-          paint.color = Colors.white.o((life * 0.32).clamp(0.0, 1.0));
+          paint.color = Colors.white.o((p.life * 0.32).clamp(0.0, 1.0));
           canvas.drawRect(
               Rect.fromCenter(
                   center: Offset(0, -h * 0.28),
@@ -595,25 +601,20 @@ class GamePainter extends CustomPainter {
           break;
 
         // ── CHUNK: wider rounded rect, tumbling stone/wood debris ──────────
-        // Represents: asteroid rubble, chest wood fragments.
-        case 'chunk':
-          final angle = p['angle'] as double? ?? 0.0;
-          final aspect = p['aspect'] as double? ?? 0.65;
+        case ParticleShape.chunk:
           final w = pSize;
           final upper = w * 1.2;
-          final h = (pSize * aspect).clamp(upper < 1.0 ? upper : 1.0, upper);
+          final h = (pSize * p.aspect).clamp(upper < 1.0 ? upper : 1.0, upper);
           canvas.save();
           canvas.translate(px, py);
-          canvas.rotate(angle);
-          // Main chunk body
-          paint.color = col.o(life.clamp(0.0, 1.0));
+          canvas.rotate(p.angle);
+          paint.color = col.o(p.life.clamp(0.0, 1.0));
           canvas.drawRRect(
               RRect.fromRectAndRadius(
                   Rect.fromCenter(center: Offset.zero, width: w, height: h),
                   Radius.circular(h * 0.20)),
               paint);
-          // Lit top edge (simulates 3D volume under top-left light)
-          paint.color = Colors.white.o((life * 0.20).clamp(0.0, 1.0));
+          paint.color = Colors.white.o((p.life * 0.20).clamp(0.0, 1.0));
           canvas.drawRRect(
               RRect.fromRectAndRadius(
                   Rect.fromCenter(
@@ -624,10 +625,6 @@ class GamePainter extends CustomPainter {
               paint);
           canvas.restore();
           break;
-
-        default:
-          paint.color = col.o(life.clamp(0.0, 1.0));
-          canvas.drawCircle(Offset(px, py), pSize, paint);
       }
     }
     paint.maskFilter = null;
@@ -680,6 +677,9 @@ class GamePainter extends CustomPainter {
         break;
       case SkinType.titan:
         drawTitanShip(canvas, r, color, animTick);
+        break;
+      case SkinType.sovereign:
+        drawSovereignShip(canvas, r, color, animTick);
         break;
     }
 

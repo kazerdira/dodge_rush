@@ -3,140 +3,54 @@ part of '../game_provider.dart';
 // ── COMBAT SYSTEM ────────────────────────────────────────────────────────────
 
 extension CombatSystem on GameProvider {
-  // ── REBALANCED FIRE RATES ─────────────────────────────────────────────────
-  // Slightly slower than original to prevent rapid-fire feeling too easy.
-  double getFireRate() {
-    if (player.skin == SkinType.titan) return 0.16; // was 0.14
-    switch (state.currentWeapon) {
-      case WeaponType.rapidFire:
-        return 0.09; // was 0.07
-      case WeaponType.spread:
-        return 0.22; // was 0.20
-      case WeaponType.laser:
-        return 0.06; // was 0.05
-      default:
-        return GameProvider._fireRate; // 0.18 unchanged
-    }
-  }
+  // ── FIRE RATE (data-driven via WeaponSlot) ────────────────────────────────
+  double getFireRate() =>
+      resolveWeaponSlot(player.skin, state.currentWeapon).fireRate;
 
+  // ── BULLET SPAWNING (data-driven via WeaponSlot) ──────────────────────────
   void spawnBullets() {
-    final color = player.color;
+    final slot = resolveWeaponSlot(player.skin, state.currentWeapon);
+    final baseColor = player.color;
 
+    // Muzzle-flash helper — 4 spark particles at a point.
     void flash(double bx, double by) {
       for (int i = 0; i < 4; i++) {
         final angle = -pi / 2 + (_rng.nextDouble() - 0.5) * 0.8;
-        particles.add({
-          'x': bx,
-          'y': by,
-          'vx': cos(angle) * 0.006,
-          'vy': sin(angle) * 0.006,
-          'life': 0.4,
-          'color': Colors.white,
-          'size': 2.5,
-          'decay': 0.06,
-          'shape': 'spark',
-          'angle': angle,
-          'spin': 0.0,
-        });
+        particles.add(Particle(
+          x: bx,
+          y: by,
+          vx: cos(angle) * 0.006,
+          vy: sin(angle) * 0.006,
+          life: 0.4,
+          color: Colors.white,
+          size: 2.5,
+          decay: 0.06,
+          shape: ParticleShape.spark,
+          angle: angle,
+        ));
       }
     }
 
-    switch (player.skin) {
-      case SkinType.phantom:
-        bullets.add(Bullet(
-            x: player.x,
-            y: player.y - 0.03,
-            vy: state.currentWeapon == WeaponType.rapidFire ? -0.030 : -0.025,
-            color: state.currentWeapon == WeaponType.rapidFire
-                ? Colors.yellowAccent
-                : color,
-            shape: BulletShape.needle));
-        flash(player.x, player.y - 0.03);
-        break;
+    // Spawn one bullet per port.
+    final flashedDx = <double>{};
+    for (final port in slot.ports) {
+      final bx = player.x +
+          port.dx +
+          (port.xJitter > 0 ? (_rng.nextDouble() - 0.5) * port.xJitter : 0);
+      final by = player.y + port.dy;
 
-      case SkinType.nova:
-        final shots = state.currentWeapon == WeaponType.spread ? 5 : 3;
-        for (int i = 0; i < shots; i++) {
-          final offset = (i - shots ~/ 2);
-          final angle = -pi / 2 + offset * 0.22;
-          bullets.add(Bullet(
-              x: player.x,
-              y: player.y - 0.03,
-              vx: cos(angle) * 0.012,
-              vy: sin(angle) * 0.022,
-              color: color,
-              shape: BulletShape.plasma));
-        }
-        flash(player.x, player.y - 0.03);
-        break;
+      bullets.add(Bullet(
+        x: bx,
+        y: by,
+        vx: port.vx,
+        vy: port.vy,
+        color: port.color ?? baseColor,
+        shape: port.shape,
+        damage: port.damage,
+      ));
 
-      case SkinType.inferno:
-        bullets.add(Bullet(
-            x: player.x + (_rng.nextDouble() - 0.5) * 0.015,
-            y: player.y - 0.03,
-            vy: state.currentWeapon == WeaponType.rapidFire ? -0.030 : -0.025,
-            color: color,
-            shape: BulletShape.shell));
-        flash(player.x, player.y - 0.03);
-        break;
-
-      case SkinType.specter:
-        if (state.currentWeapon == WeaponType.laser) {
-          bullets.add(Bullet(
-              x: player.x - 0.025,
-              y: player.y - 0.03,
-              vy: -0.045,
-              color: color,
-              shape: BulletShape.beam));
-          bullets.add(Bullet(
-              x: player.x + 0.025,
-              y: player.y - 0.03,
-              vy: -0.045,
-              color: color,
-              shape: BulletShape.beam));
-        } else {
-          bullets.add(Bullet(
-              x: player.x,
-              y: player.y - 0.03,
-              vy: -0.045,
-              color: color,
-              shape: BulletShape.beam));
-        }
-        flash(player.x, player.y - 0.03);
-        break;
-
-      case SkinType.titan:
-        bullets.add(Bullet(
-            x: player.x - 0.04,
-            y: player.y - 0.03,
-            vy: -0.022,
-            color: color,
-            shape: BulletShape.cannon));
-        bullets.add(Bullet(
-            x: player.x + 0.04,
-            y: player.y - 0.03,
-            vy: -0.022,
-            color: color,
-            shape: BulletShape.cannon));
-        if (state.currentWeapon == WeaponType.spread) {
-          bullets.add(Bullet(
-              x: player.x - 0.07,
-              y: player.y - 0.01,
-              vx: -0.006,
-              vy: -0.018,
-              color: color,
-              shape: BulletShape.cannon));
-          bullets.add(Bullet(
-              x: player.x + 0.07,
-              y: player.y - 0.01,
-              vx: 0.006,
-              vy: -0.018,
-              color: color,
-              shape: BulletShape.cannon));
-        }
-        flash(player.x - 0.04, player.y - 0.03);
-        flash(player.x + 0.04, player.y - 0.03);
-        break;
+      // One muzzle flash per unique dx column.
+      if (flashedDx.add(port.dx)) flash(player.x + port.dx, by);
     }
   }
 
@@ -145,41 +59,17 @@ extension CombatSystem on GameProvider {
       if (!bullet.active) continue;
       for (final obs in obstacles) {
         if (!obs.isShootable || obs.isDying || obs.hp <= 0) continue;
-        bool hit = false;
-        switch (obs.type) {
-          case ObstacleType.asteroid:
-            final cx = obs.x + obs.width / 2;
-            final cy = obs.y + obs.height / 2;
-            hit = sqrt(pow(bullet.x - cx, 2) + pow(bullet.y - cy, 2)) <
-                obs.width * 0.55;
-            break;
-          case ObstacleType.mine:
-            final cx = obs.x + obs.width / 2;
-            final cy = obs.y + obs.height / 2;
-            hit = sqrt(pow(bullet.x - cx, 2) + pow(bullet.y - cy, 2)) <
-                obs.width * 0.7;
-            break;
-          case ObstacleType.laserWall:
-            hit = bullet.x >= obs.x &&
-                bullet.x <= obs.x + obs.width &&
-                bullet.y >= obs.y &&
-                bullet.y <= obs.y + obs.height;
-            break;
-          case ObstacleType.sweepBeam:
-          case ObstacleType.pulseGate:
-            break;
-        }
-        if (hit) {
+        if (obs.checkBulletHit(bullet.x, bullet.y)) {
           bullet.active = false;
-          damageObstacle(obs);
+          damageObstacle(obs, bullet.damage);
           break;
         }
       }
     }
   }
 
-  void damageObstacle(Obstacle obs) {
-    obs.hp--;
+  void damageObstacle(GameEntity obs, [int damage = 1]) {
+    obs.hp -= damage;
     final cx = obs.x + obs.width / 2;
     final cy = obs.y + obs.height / 2;
 
@@ -187,90 +77,67 @@ extension CombatSystem on GameProvider {
     spawnHitSparks(cx, cy, obs.color);
 
     if (obs.hp <= 0) {
-      // Shake scales with toughness
-      shakeIntensity = (obs.wallTier == WallTier.armored)
-          ? 14.0
-          : (obs.wallTier == WallTier.reinforced)
-              ? 10.0
-              : 5.0;
-
-      // ── DIFFERENTIATED DEATH EFFECTS per obstacle type ──────────────────
-      if (obs.type == ObstacleType.laserWall) {
-        // Metal wall: angular shards + fire embers on top
-        if (obs.wallTier != null) {
-          spawnDebrisParticles(cx, cy, obs.color, obs.wallTier!);
+      // ── Trigger composable death effects ──────────────────────────────
+      for (final fx in obs.deathEffects) {
+        switch (fx) {
+          case ShakeEffect():
+            shakeIntensity = fx.intensity;
+            break;
+          case ExplosionEffect():
+            switch (fx.style) {
+              case ExplosionStyle.fire:
+                spawnExplosionParticles(cx, cy);
+                break;
+              case ExplosionStyle.stone:
+                spawnStoneDebris(cx, cy);
+                break;
+              case ExplosionStyle.mine:
+                spawnMineExplosion(cx, cy, obs.color);
+                break;
+              case ExplosionStyle.wallDebris:
+                if (fx.wallTier != null) {
+                  spawnDebrisParticles(cx, cy, obs.color, fx.wallTier!);
+                }
+                break;
+            }
+            break;
+          case ShockwaveEffect():
+            shockwaves.add(Shockwave(
+                x: cx, y: cy, radius: fx.radius, life: 1.0, color: obs.color));
+            break;
+          case ChestDropEffect():
+            if (_rng.nextDouble() < fx.chance) spawnChest(cx, cy);
+            break;
+          case ScoreEffect():
+            state.score += fx.points;
+            break;
+          case RampageChargeEffect():
+            if (!rampage.isActive) {
+              rampage.chargeLevel =
+                  (rampage.chargeLevel + fx.charge).clamp(0.0, 1.0);
+            }
+            break;
+          case SplitEffect():
+            spawnClusterChildren(cx, cy, fx.count, fx.childType);
+            break;
         }
-        spawnExplosionParticles(cx, cy); // fire layer
-        if (obs.wallTier == WallTier.reinforced ||
-            obs.wallTier == WallTier.armored) {
-          shockwaves.add(Shockwave(
-              x: cx, y: cy, radius: 0.02, life: 1.0, color: obs.color));
-        }
-      } else if (obs.type == ObstacleType.asteroid) {
-        // Stone: rocky chunks + crystal sparks — NO generic fire
-        spawnStoneDebris(cx, cy);
-      } else if (obs.type == ObstacleType.mine) {
-        // Mine: energy burst + metal spike shards
-        spawnMineExplosion(cx, cy, obs.color);
-        shockwaves.add(Shockwave(
-            x: cx, y: cy, radius: 0.015, life: 1.0, color: obs.color));
-        if (obs.mineType == MineType.cluster) {
-          spawnClusterChildren(cx, cy);
-        }
-      } else {
-        spawnExplosionParticles(cx, cy);
-      }
-
-      // Chest drop
-      double dropChance = 0.30;
-      if (obs.wallTier == WallTier.reinforced) dropChance = 0.55;
-      if (obs.wallTier == WallTier.armored) dropChance = 0.80;
-      if (obs.type == ObstacleType.asteroid) dropChance = 0.40;
-      if (obs.type == ObstacleType.mine) dropChance = 0.25;
-      if (_rng.nextDouble() < dropChance) spawnChest(cx, cy);
-
-      // Score
-      int bonus = 50;
-      if (obs.wallTier == WallTier.fragile) bonus = 20;
-      if (obs.wallTier == WallTier.standard) bonus = 50;
-      if (obs.wallTier == WallTier.reinforced) bonus = 150;
-      if (obs.wallTier == WallTier.armored) bonus = 400;
-      if (obs.type == ObstacleType.mine) {
-        bonus = obs.mineType == MineType.cluster
-            ? 60
-            : obs.mineType == MineType.tracker
-                ? 80
-                : 30;
-      }
-      if (obs.type == ObstacleType.asteroid) bonus = 60;
-      state.score += bonus;
-
-      if (!rampage.isActive) {
-        final charge = obs.wallTier == WallTier.armored
-            ? 0.12
-            : obs.wallTier == WallTier.reinforced
-                ? 0.07
-                : obs.type == ObstacleType.mine
-                    ? 0.05
-                    : 0.03;
-        rampage.chargeLevel = (rampage.chargeLevel + charge).clamp(0.0, 1.0);
       }
     }
   }
 
-  void spawnClusterChildren(double cx, double cy) {
-    for (int i = 0; i < 3; i++) {
-      final angle = (2 * pi / 3) * i + _rng.nextDouble() * 0.5;
+  void spawnClusterChildren(
+      double cx, double cy, int count, MineType childType) {
+    for (int i = 0; i < count; i++) {
+      final angle = (2 * pi / count) * i + _rng.nextDouble() * 0.5;
       final dist = 0.04 + _rng.nextDouble() * 0.03;
-      obstacles.add(Obstacle(
+      obstacles.add(MineEntity(
         x: cx + cos(angle) * dist - 0.018,
         y: cy + sin(angle) * dist,
         width: 0.035,
         height: 0.035,
         speed: 0.002 + state.difficulty * 0.0005,
-        type: ObstacleType.mine,
         color: const Color(0xFFFF9900),
-        mineType: MineType.proximity,
+        mineType: childType,
         rotationSpeed: (_rng.nextDouble() - 0.5) * 0.1,
         hp: 1,
       ));
@@ -285,45 +152,7 @@ extension CombatSystem on GameProvider {
     if (!state.isShieldActive) {
       for (final obs in obstacles) {
         if (obs.isDying || (obs.hp <= 0 && obs.isShootable)) continue;
-        bool hit = false;
-        const margin = 0.01;
-        switch (obs.type) {
-          case ObstacleType.asteroid:
-          case ObstacleType.mine:
-            final dist = sqrt(pow(px - (obs.x + obs.width / 2), 2) +
-                pow(py - (obs.y + obs.height / 2), 2));
-            hit = dist < obs.width * 0.5 + pw * 0.45;
-            break;
-          case ObstacleType.laserWall:
-            hit = px + pw / 2 - margin > obs.x &&
-                px - pw / 2 + margin < obs.x + obs.width &&
-                py + ph / 2 - margin > obs.y &&
-                py - ph / 2 + margin < obs.y + obs.height;
-            break;
-          case ObstacleType.sweepBeam:
-            if (!obs.sweepDone) {
-              final beamX = obs.sweepFromLeft
-                  ? obs.sweepProgress
-                  : (1.0 - obs.sweepProgress);
-              const beamW = 0.032; // halved — was 0.055
-              hit = (beamX - px).abs() < beamW &&
-                  py + ph / 2 > obs.y &&
-                  py - ph / 2 < obs.y + obs.height;
-            }
-            break;
-          case ObstacleType.pulseGate:
-            final openness = (sin(obs.pulsePhase) + 1) / 2;
-            final halfGap = obs.gapHalfWidth * max(openness, 0.05);
-            final distFromCenter = (px - obs.gapCenterX).abs();
-            final inGapZone =
-                py + ph / 2 > obs.y && py - ph / 2 < obs.y + obs.height;
-            // Only lethal when gate is nearly closed AND player is in wall zone
-            hit = inGapZone &&
-                distFromCenter > halfGap + pw * 0.5 &&
-                openness < 0.08; // was 0.15 — more forgiving
-            break;
-        }
-        if (hit) {
+        if (obs.checkPlayerHit(px, py, pw, ph)) {
           handleHit();
           return;
         }
@@ -373,11 +202,6 @@ extension CombatSystem on GameProvider {
 
   void applyChestReward(TreasureChest chest) {
     switch (chest.reward) {
-      case TreasureReward.slowTime:
-        state.isSlowActive = true;
-        state.slowTimer = 5.0;
-        onRewardCollected?.call('⏱ SLOW TIME');
-        break;
       case TreasureReward.extraLife:
         state.lives = min(state.lives + 1, 5);
         onRewardCollected?.call('♥ EXTRA LIFE');
@@ -439,10 +263,6 @@ extension CombatSystem on GameProvider {
       case PowerUpType.shield:
         state.isShieldActive = true;
         state.shieldTimer = 6.0;
-        break;
-      case PowerUpType.slowTime:
-        state.isSlowActive = true;
-        state.slowTimer = 5.0;
         break;
       case PowerUpType.extraLife:
         state.lives = min(state.lives + 1, 5);

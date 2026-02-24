@@ -1,15 +1,9 @@
 part of '../game_provider.dart';
 
 // ── PARTICLE SYSTEM ──────────────────────────────────────────────────────────
-// Each particle carries a 'shape' key that game_painter uses to decide how
-// to draw it:
-//   'dot'   — filled circle (coins, power-ups, generic glow)
-//   'spark' — tiny bright needle, fast decay (bullet impact, metal graze)
-//   'ember' — round glowing orb, hot core (fire, energy bursts)
-//   'shard' — thin elongated rectangle, spins fast (metal wall panels)
-//   'chunk' — wider rounded rect, tumbles slowly (stone/asteroid rubble)
-//
-// 'angle' holds the live rotation in radians — updated each tick by 'spin'.
+// Particles use the typed Particle class with ParticleShape enum.
+// Shapes: dot, spark, ember, shard, chunk.
+// 'angle' holds live rotation in radians — updated each tick by 'spin'.
 
 extension ParticleSystem on GameProvider {
   // ── HIT SPARKS ─────────────────────────────────────────────────────────────
@@ -18,19 +12,18 @@ extension ParticleSystem on GameProvider {
     for (int i = 0; i < 7; i++) {
       final angle = _rng.nextDouble() * 2 * pi;
       final speed = 0.006 + _rng.nextDouble() * 0.014;
-      particles.add({
-        'x': x,
-        'y': y,
-        'vx': cos(angle) * speed,
-        'vy': sin(angle) * speed,
-        'life': 0.55,
-        'color': Color.lerp(color, Colors.white, 0.75)!,
-        'size': 1.8 + _rng.nextDouble() * 1.8,
-        'decay': 0.07,
-        'shape': 'spark',
-        'angle': angle,
-        'spin': 0.0,
-      });
+      particles.add(Particle(
+        x: x,
+        y: y,
+        vx: cos(angle) * speed,
+        vy: sin(angle) * speed,
+        life: 0.55,
+        color: Color.lerp(color, Colors.white, 0.75)!,
+        size: 1.8 + _rng.nextDouble() * 1.8,
+        decay: 0.07,
+        shape: ParticleShape.spark,
+        angle: angle,
+      ));
     }
   }
 
@@ -48,8 +41,11 @@ extension ParticleSystem on GameProvider {
         : tier == WallTier.reinforced
             ? 9.0
             : 5.0;
-    final topSpeed =
-        tier == WallTier.armored ? 0.022 : tier == WallTier.reinforced ? 0.016 : 0.012;
+    final topSpeed = tier == WallTier.armored
+        ? 0.022
+        : tier == WallTier.reinforced
+            ? 0.016
+            : 0.012;
 
     for (int i = 0; i < count; i++) {
       final angle = _rng.nextDouble() * 2 * pi;
@@ -60,20 +56,20 @@ extension ParticleSystem on GameProvider {
           : Color.lerp(const Color(0xFF8A8A9A), const Color(0xFF42424E),
               _rng.nextDouble())!;
       final w = 2.5 + _rng.nextDouble() * maxSize;
-      particles.add({
-        'x': x,
-        'y': y,
-        'vx': cos(angle) * spd,
-        'vy': sin(angle) * spd - 0.002,
-        'life': 1.0,
-        'color': col,
-        'size': w,
-        'aspect': 0.18 + _rng.nextDouble() * 0.18,
-        'decay': tier == WallTier.armored ? 0.011 : 0.016,
-        'shape': 'shard',
-        'angle': angle,
-        'spin': (_rng.nextDouble() - 0.5) * 0.30,
-      });
+      particles.add(Particle(
+        x: x,
+        y: y,
+        vx: cos(angle) * spd,
+        vy: sin(angle) * spd - 0.002,
+        life: 1.0,
+        color: col,
+        size: w,
+        aspect: 0.18 + _rng.nextDouble() * 0.18,
+        decay: tier == WallTier.armored ? 0.011 : 0.016,
+        shape: ParticleShape.shard,
+        angle: angle,
+        spin: (_rng.nextDouble() - 0.5) * 0.30,
+      ));
     }
   }
 
@@ -85,37 +81,36 @@ extension ParticleSystem on GameProvider {
       final spd = 0.004 + _rng.nextDouble() * 0.018;
       final col = Color.lerp(
           const Color(0xFF6A5A48), const Color(0xFF9A8A78), _rng.nextDouble())!;
-      particles.add({
-        'x': x,
-        'y': y,
-        'vx': cos(angle) * spd,
-        'vy': sin(angle) * spd,
-        'life': 1.0,
-        'color': col,
-        'size': 4.5 + _rng.nextDouble() * 9.0,
-        'aspect': 0.55 + _rng.nextDouble() * 0.50,
-        'decay': 0.016,
-        'shape': 'chunk',
-        'angle': angle,
-        'spin': (_rng.nextDouble() - 0.5) * 0.10,
-      });
+      particles.add(Particle(
+        x: x,
+        y: y,
+        vx: cos(angle) * spd,
+        vy: sin(angle) * spd,
+        life: 1.0,
+        color: col,
+        size: 4.5 + _rng.nextDouble() * 9.0,
+        aspect: 0.55 + _rng.nextDouble() * 0.50,
+        decay: 0.016,
+        shape: ParticleShape.chunk,
+        angle: angle,
+        spin: (_rng.nextDouble() - 0.5) * 0.10,
+      ));
     }
     // Cyan crystal sparks from energy veins
     for (int i = 0; i < 5; i++) {
       final angle = _rng.nextDouble() * 2 * pi;
-      particles.add({
-        'x': x,
-        'y': y,
-        'vx': cos(angle) * (0.010 + _rng.nextDouble() * 0.016),
-        'vy': sin(angle) * (0.010 + _rng.nextDouble() * 0.016),
-        'life': 0.6,
-        'color': const Color(0xFF00E5FF),
-        'size': 2.0,
-        'decay': 0.055,
-        'shape': 'spark',
-        'angle': angle,
-        'spin': 0.0,
-      });
+      particles.add(Particle(
+        x: x,
+        y: y,
+        vx: cos(angle) * (0.010 + _rng.nextDouble() * 0.016),
+        vy: sin(angle) * (0.010 + _rng.nextDouble() * 0.016),
+        life: 0.6,
+        color: const Color(0xFF00E5FF),
+        size: 2.0,
+        decay: 0.055,
+        shape: ParticleShape.spark,
+        angle: angle,
+      ));
     }
   }
 
@@ -125,36 +120,35 @@ extension ParticleSystem on GameProvider {
     for (int i = 0; i < 18; i++) {
       final angle = _rng.nextDouble() * 2 * pi;
       final spd = 0.007 + _rng.nextDouble() * 0.020;
-      particles.add({
-        'x': x,
-        'y': y,
-        'vx': cos(angle) * spd,
-        'vy': sin(angle) * spd,
-        'life': 0.9,
-        'color': Color.lerp(color, Colors.white, 0.4)!,
-        'size': 4.0 + _rng.nextDouble() * 5.0,
-        'decay': 0.024,
-        'shape': 'ember',
-        'angle': angle,
-        'spin': 0.0,
-      });
+      particles.add(Particle(
+        x: x,
+        y: y,
+        vx: cos(angle) * spd,
+        vy: sin(angle) * spd,
+        life: 0.9,
+        color: Color.lerp(color, Colors.white, 0.4)!,
+        size: 4.0 + _rng.nextDouble() * 5.0,
+        decay: 0.024,
+        shape: ParticleShape.ember,
+        angle: angle,
+      ));
     }
     for (int i = 0; i < 8; i++) {
       final angle = _rng.nextDouble() * 2 * pi;
-      particles.add({
-        'x': x,
-        'y': y,
-        'vx': cos(angle) * (0.010 + _rng.nextDouble() * 0.014),
-        'vy': sin(angle) * (0.010 + _rng.nextDouble() * 0.014),
-        'life': 0.8,
-        'color': const Color(0xFF888898),
-        'size': 3.5 + _rng.nextDouble() * 4.0,
-        'aspect': 0.20,
-        'decay': 0.035,
-        'shape': 'shard',
-        'angle': angle,
-        'spin': (_rng.nextDouble() - 0.5) * 0.28,
-      });
+      particles.add(Particle(
+        x: x,
+        y: y,
+        vx: cos(angle) * (0.010 + _rng.nextDouble() * 0.014),
+        vy: sin(angle) * (0.010 + _rng.nextDouble() * 0.014),
+        life: 0.8,
+        color: const Color(0xFF888898),
+        size: 3.5 + _rng.nextDouble() * 4.0,
+        aspect: 0.20,
+        decay: 0.035,
+        shape: ParticleShape.shard,
+        angle: angle,
+        spin: (_rng.nextDouble() - 0.5) * 0.28,
+      ));
     }
   }
 
@@ -173,39 +167,38 @@ extension ParticleSystem on GameProvider {
       final spd = intense
           ? (0.008 + _rng.nextDouble() * 0.028)
           : (0.005 + _rng.nextDouble() * 0.018);
-      particles.add({
-        'x': x,
-        'y': y,
-        'vx': cos(angle) * spd,
-        'vy': sin(angle) * spd - 0.003,
-        'life': 1.0,
-        'color': fireColors[_rng.nextInt(fireColors.length)],
-        'size': intense
+      particles.add(Particle(
+        x: x,
+        y: y,
+        vx: cos(angle) * spd,
+        vy: sin(angle) * spd - 0.003,
+        life: 1.0,
+        color: fireColors[_rng.nextInt(fireColors.length)],
+        size: intense
             ? (5.0 + _rng.nextDouble() * 11.0)
             : (3.5 + _rng.nextDouble() * 7.0),
-        'decay': intense ? 0.022 : 0.032,
-        'shape': 'ember',
-        'angle': angle,
-        'spin': 0.0,
-      });
+        decay: intense ? 0.022 : 0.032,
+        shape: ParticleShape.ember,
+        angle: angle,
+      ));
     }
     if (intense) {
       for (int i = 0; i < 8; i++) {
         final angle = _rng.nextDouble() * 2 * pi;
-        particles.add({
-          'x': x,
-          'y': y,
-          'vx': cos(angle) * (0.005 + _rng.nextDouble() * 0.016),
-          'vy': sin(angle) * (0.005 + _rng.nextDouble() * 0.016),
-          'life': 1.0,
-          'color': const Color(0xFF666678),
-          'size': 5.0 + _rng.nextDouble() * 7.0,
-          'aspect': 0.25,
-          'decay': 0.018,
-          'shape': 'shard',
-          'angle': angle,
-          'spin': (_rng.nextDouble() - 0.5) * 0.24,
-        });
+        particles.add(Particle(
+          x: x,
+          y: y,
+          vx: cos(angle) * (0.005 + _rng.nextDouble() * 0.016),
+          vy: sin(angle) * (0.005 + _rng.nextDouble() * 0.016),
+          life: 1.0,
+          color: const Color(0xFF666678),
+          size: 5.0 + _rng.nextDouble() * 7.0,
+          aspect: 0.25,
+          decay: 0.018,
+          shape: ParticleShape.shard,
+          angle: angle,
+          spin: (_rng.nextDouble() - 0.5) * 0.24,
+        ));
       }
     }
   }
@@ -222,51 +215,48 @@ extension ParticleSystem on GameProvider {
     for (int i = 0; i < 50; i++) {
       final angle = _rng.nextDouble() * 2 * pi;
       final spd = 0.005 + _rng.nextDouble() * 0.036;
-      particles.add({
-        'x': x,
-        'y': y,
-        'vx': cos(angle) * spd,
-        'vy': sin(angle) * spd,
-        'life': 1.0,
-        'color': bombColors[_rng.nextInt(bombColors.length)],
-        'size': 4.0 + _rng.nextDouble() * 14.0,
-        'decay': 0.013,
-        'shape': 'ember',
-        'angle': angle,
-        'spin': 0.0,
-      });
+      particles.add(Particle(
+        x: x,
+        y: y,
+        vx: cos(angle) * spd,
+        vy: sin(angle) * spd,
+        life: 1.0,
+        color: bombColors[_rng.nextInt(bombColors.length)],
+        size: 4.0 + _rng.nextDouble() * 14.0,
+        decay: 0.013,
+        shape: ParticleShape.ember,
+        angle: angle,
+      ));
     }
     for (int i = 0; i < 20; i++) {
-      particles.add({
-        'x': x + (_rng.nextDouble() - 0.5) * 0.14,
-        'y': y,
-        'vx': (_rng.nextDouble() - 0.5) * 0.007,
-        'vy': -0.009 - _rng.nextDouble() * 0.020,
-        'life': 1.0,
-        'color': const Color(0xFFFF4400),
-        'size': 5.0 + _rng.nextDouble() * 9.0,
-        'decay': 0.011,
-        'shape': 'ember',
-        'angle': 0.0,
-        'spin': 0.0,
-      });
+      particles.add(Particle(
+        x: x + (_rng.nextDouble() - 0.5) * 0.14,
+        y: y,
+        vx: (_rng.nextDouble() - 0.5) * 0.007,
+        vy: -0.009 - _rng.nextDouble() * 0.020,
+        life: 1.0,
+        color: const Color(0xFFFF4400),
+        size: 5.0 + _rng.nextDouble() * 9.0,
+        decay: 0.011,
+        shape: ParticleShape.ember,
+      ));
     }
     for (int i = 0; i < 16; i++) {
       final angle = _rng.nextDouble() * 2 * pi;
-      particles.add({
-        'x': x,
-        'y': y,
-        'vx': cos(angle) * (0.013 + _rng.nextDouble() * 0.022),
-        'vy': sin(angle) * (0.013 + _rng.nextDouble() * 0.022),
-        'life': 1.0,
-        'color': const Color(0xFF8888AA),
-        'size': 6.0 + _rng.nextDouble() * 10.0,
-        'aspect': 0.20,
-        'decay': 0.013,
-        'shape': 'shard',
-        'angle': angle,
-        'spin': (_rng.nextDouble() - 0.5) * 0.38,
-      });
+      particles.add(Particle(
+        x: x,
+        y: y,
+        vx: cos(angle) * (0.013 + _rng.nextDouble() * 0.022),
+        vy: sin(angle) * (0.013 + _rng.nextDouble() * 0.022),
+        life: 1.0,
+        color: const Color(0xFF8888AA),
+        size: 6.0 + _rng.nextDouble() * 10.0,
+        aspect: 0.20,
+        decay: 0.013,
+        shape: ParticleShape.shard,
+        angle: angle,
+        spin: (_rng.nextDouble() - 0.5) * 0.38,
+      ));
     }
   }
 
@@ -274,43 +264,39 @@ extension ParticleSystem on GameProvider {
   void spawnCoinParticles(double x, double y) {
     for (int i = 0; i < 10; i++) {
       final angle = _rng.nextDouble() * 2 * pi;
-      particles.add({
-        'x': x,
-        'y': y,
-        'vx': cos(angle) * (0.004 + _rng.nextDouble() * 0.009),
-        'vy': sin(angle) * (0.004 + _rng.nextDouble() * 0.009) - 0.013,
-        'life': 1.0,
-        'color': const Color(0xFFFFD60A),
-        'size': 3.0 + _rng.nextDouble() * 3.0,
-        'decay': 0.042,
-        'shape': 'dot',
-        'angle': 0.0,
-        'spin': 0.0,
-      });
+      particles.add(Particle(
+        x: x,
+        y: y,
+        vx: cos(angle) * (0.004 + _rng.nextDouble() * 0.009),
+        vy: sin(angle) * (0.004 + _rng.nextDouble() * 0.009) - 0.013,
+        life: 1.0,
+        color: const Color(0xFFFFD60A),
+        size: 3.0 + _rng.nextDouble() * 3.0,
+        decay: 0.042,
+        shape: ParticleShape.dot,
+        angle: angle,
+      ));
     }
   }
 
   void spawnPowerUpParticles(double x, double y, PowerUpType type) {
     final color = type == PowerUpType.shield
         ? const Color(0xFF4D7CFF)
-        : type == PowerUpType.slowTime
-            ? const Color(0xFF8B5CF6)
-            : const Color(0xFFFF2D55);
+        : const Color(0xFFFF2D55);
     for (int i = 0; i < 14; i++) {
       final angle = _rng.nextDouble() * 2 * pi;
-      particles.add({
-        'x': x,
-        'y': y,
-        'vx': cos(angle) * (0.005 + _rng.nextDouble() * 0.010),
-        'vy': sin(angle) * (0.005 + _rng.nextDouble() * 0.010) - 0.008,
-        'life': 1.0,
-        'color': color,
-        'size': 3.0 + _rng.nextDouble() * 4.0,
-        'decay': 0.035,
-        'shape': 'dot',
-        'angle': 0.0,
-        'spin': 0.0,
-      });
+      particles.add(Particle(
+        x: x,
+        y: y,
+        vx: cos(angle) * (0.005 + _rng.nextDouble() * 0.010),
+        vy: sin(angle) * (0.005 + _rng.nextDouble() * 0.010) - 0.008,
+        life: 1.0,
+        color: color,
+        size: 3.0 + _rng.nextDouble() * 4.0,
+        decay: 0.035,
+        shape: ParticleShape.dot,
+        angle: angle,
+      ));
     }
   }
 
@@ -323,37 +309,36 @@ extension ParticleSystem on GameProvider {
     ];
     for (int i = 0; i < 18; i++) {
       final angle = _rng.nextDouble() * 2 * pi;
-      particles.add({
-        'x': x,
-        'y': y,
-        'vx': cos(angle) * (0.005 + _rng.nextDouble() * 0.015),
-        'vy': sin(angle) * (0.005 + _rng.nextDouble() * 0.015) - 0.012,
-        'life': 1.0,
-        'color': chestColors[_rng.nextInt(chestColors.length)],
-        'size': 4.0 + _rng.nextDouble() * 6.0,
-        'decay': 0.025,
-        'shape': 'dot',
-        'angle': 0.0,
-        'spin': 0.0,
-      });
+      particles.add(Particle(
+        x: x,
+        y: y,
+        vx: cos(angle) * (0.005 + _rng.nextDouble() * 0.015),
+        vy: sin(angle) * (0.005 + _rng.nextDouble() * 0.015) - 0.012,
+        life: 1.0,
+        color: chestColors[_rng.nextInt(chestColors.length)],
+        size: 4.0 + _rng.nextDouble() * 6.0,
+        decay: 0.025,
+        shape: ParticleShape.dot,
+        angle: angle,
+      ));
     }
     // Small wood fragments from the lid
     for (int i = 0; i < 5; i++) {
       final angle = _rng.nextDouble() * 2 * pi;
-      particles.add({
-        'x': x,
-        'y': y,
-        'vx': cos(angle) * (0.006 + _rng.nextDouble() * 0.010),
-        'vy': sin(angle) * (0.006 + _rng.nextDouble() * 0.010) - 0.008,
-        'life': 0.8,
-        'color': const Color(0xFF6B4E12),
-        'size': 4.0 + _rng.nextDouble() * 5.0,
-        'aspect': 0.40,
-        'decay': 0.035,
-        'shape': 'chunk',
-        'angle': angle,
-        'spin': (_rng.nextDouble() - 0.5) * 0.18,
-      });
+      particles.add(Particle(
+        x: x,
+        y: y,
+        vx: cos(angle) * (0.006 + _rng.nextDouble() * 0.010),
+        vy: sin(angle) * (0.006 + _rng.nextDouble() * 0.010) - 0.008,
+        life: 0.8,
+        color: const Color(0xFF6B4E12),
+        size: 4.0 + _rng.nextDouble() * 5.0,
+        aspect: 0.40,
+        decay: 0.035,
+        shape: ParticleShape.chunk,
+        angle: angle,
+        spin: (_rng.nextDouble() - 0.5) * 0.18,
+      ));
     }
   }
 
@@ -364,36 +349,35 @@ extension ParticleSystem on GameProvider {
     for (int i = 0; i < 35; i++) {
       final angle = _rng.nextDouble() * 2 * pi;
       final spd = 0.009 + _rng.nextDouble() * 0.026;
-      particles.add({
-        'x': x,
-        'y': y,
-        'vx': cos(angle) * spd,
-        'vy': sin(angle) * spd,
-        'life': 1.0,
-        'color': arrivalColors[_rng.nextInt(arrivalColors.length)],
-        'size': 5.0 + _rng.nextDouble() * 14.0,
-        'decay': 0.015,
-        'shape': 'ember',
-        'angle': angle,
-        'spin': 0.0,
-      });
+      particles.add(Particle(
+        x: x,
+        y: y,
+        vx: cos(angle) * spd,
+        vy: sin(angle) * spd,
+        life: 1.0,
+        color: arrivalColors[_rng.nextInt(arrivalColors.length)],
+        size: 5.0 + _rng.nextDouble() * 14.0,
+        decay: 0.015,
+        shape: ParticleShape.ember,
+        angle: angle,
+      ));
     }
     for (int i = 0; i < 14; i++) {
       final angle = pi / 2 + (_rng.nextDouble() - 0.5) * pi;
-      particles.add({
-        'x': x + (_rng.nextDouble() - 0.5) * 0.18,
-        'y': y,
-        'vx': cos(angle) * (0.005 + _rng.nextDouble() * 0.013),
-        'vy': sin(angle) * (0.005 + _rng.nextDouble() * 0.013),
-        'life': 1.0,
-        'color': const Color(0xFF555562),
-        'size': 7.0 + _rng.nextDouble() * 12.0,
-        'aspect': 0.22,
-        'decay': 0.012,
-        'shape': 'shard',
-        'angle': angle,
-        'spin': (_rng.nextDouble() - 0.5) * 0.28,
-      });
+      particles.add(Particle(
+        x: x + (_rng.nextDouble() - 0.5) * 0.18,
+        y: y,
+        vx: cos(angle) * (0.005 + _rng.nextDouble() * 0.013),
+        vy: sin(angle) * (0.005 + _rng.nextDouble() * 0.013),
+        life: 1.0,
+        color: const Color(0xFF555562),
+        size: 7.0 + _rng.nextDouble() * 12.0,
+        aspect: 0.22,
+        decay: 0.012,
+        shape: ParticleShape.shard,
+        angle: angle,
+        spin: (_rng.nextDouble() - 0.5) * 0.28,
+      ));
     }
   }
 

@@ -14,7 +14,8 @@ import '../../utils/safe_color.dart';
 // • HP bar remains (it's functional, not decorative)
 // ─────────────────────────────────────────────────────────────────────────────
 
-void drawLaserWall(Canvas canvas, Size size, Obstacle obs, double animTick) {
+void drawLaserWall(
+    Canvas canvas, Size size, LaserWallEntity obs, double animTick) {
   final rect = Rect.fromLTWH(obs.x * size.width, obs.y * size.height,
       obs.width * size.width, obs.height * size.height);
   final paint = Paint();
@@ -371,7 +372,7 @@ void drawLaserWall(Canvas canvas, Size size, Obstacle obs, double animTick) {
 
 /// HP bar drawn below each wall.
 void _drawHpBar(
-    Canvas canvas, Rect wallRect, Obstacle obs, Color color, double opacity) {
+    Canvas canvas, Rect wallRect, GameEntity obs, Color color, double opacity) {
   if (obs.maxHp <= 1) return;
   final ratio = (obs.hp / obs.maxHp).clamp(0.0, 1.0);
   const barH = 3.0;

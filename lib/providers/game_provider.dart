@@ -8,6 +8,7 @@ part 'systems/spawner.dart';
 part 'systems/combat.dart';
 part 'systems/particles.dart';
 part 'systems/boss_system.dart';
+part 'systems/scenarios.dart';
 
 class GameProvider extends ChangeNotifier {
   final Random _rng = Random();
@@ -15,41 +16,54 @@ class GameProvider extends ChangeNotifier {
 
   RunState state = RunState();
   Player player = Player();
-  List<Obstacle> obstacles = [];
+  List<GameEntity> obstacles = [];
   List<Coin> coins = [];
   List<PowerUp> powerUps = [];
   List<Bullet> bullets = [];
   List<TreasureChest> chests = [];
-  List<Map<String, dynamic>> particles = [];
+  List<Particle> particles = [];
   List<StarParticle> stars = [];
   List<TrailPoint> trail = [];
   List<Shockwave> shockwaves = [];
 
   Bomb? activeBomb;
-  List<Obstacle> _bombKillQueue = [];
+  List<GameEntity> _bombKillQueue = [];
   int _bombKillCursor = 0;
-  List<Map<String, dynamic>> ghostImages = [];
+  List<GhostImage> ghostImages = [];
 
-  // ── BOSS ──────────────────────────────────────────────────────────────────
+  // ── BOSS (data lives here for painter access) ──────────────────────────────
   BossShip? boss;
   List<BossMissile> bossMissiles = [];
-  bool bossDefeated = false;
-  bool bossSpawned = false;
-  int bossKillCount = 0; // how many times boss has been killed
-  double _timeSinceLastBoss = 0; // timer for respawn
-  static const double _bossRespawnInterval =
-      45.0; // respawn every 45s after kill
 
   // ── RAMPAGE ───────────────────────────────────────────────────────────────
   RampageState rampage = RampageState();
   bool get isRampageReady => rampage.chargeLevel >= 1.0 && !rampage.isActive;
 
-  // ── GAUNTLET / ESCAPE ─────────────────────────────────────────────────────
-  bool gauntletActive = false;
-  double gauntletTimer = 0.0;
-  static const double _gauntletDuration = 30.0;
-  bool escaped = false;
-  double escapeFlashTimer = 0.0;
+  // ── SCENARIO SYSTEM ───────────────────────────────────────────────────────
+  final List<GameScenario> _scenarios = [];
+
+  // Convenience accessors for the two core scenarios.
+  GauntletScenario get _gauntlet =>
+      _scenarios.whereType<GauntletScenario>().first;
+  BossEncounterScenario get _bossEncounter =>
+      _scenarios.whereType<BossEncounterScenario>().first;
+
+  // Pass-through getters so painters keep working unchanged.
+  bool get gauntletActive => _gauntlet.isActive;
+  double get gauntletTimer => _gauntlet.timer;
+  bool get escaped => _gauntlet.escaped;
+  double get escapeFlashTimer => _gauntlet.escapeFlashTimer;
+  bool get bossDefeated => _bossEncounter.defeated;
+  bool get bossSpawned => _bossEncounter.spawned;
+  int get bossKillCount => _bossEncounter.killCount;
+
+  /// The currently active environmental effect (if any).
+  EnvironmentalEffect get activeEnvironment {
+    for (final s in _scenarios) {
+      if (s is EnvironmentScenario && s.isActive) return s.effect;
+    }
+    return EnvironmentalEffect.none;
+  }
 
   double shakeIntensity = 0;
   Offset shakeOffset = Offset.zero;
@@ -65,7 +79,6 @@ class GameProvider extends ChangeNotifier {
   double _timeSinceLastAsteroid = 0;
 
   bool _isFiring = true;
-  static const double _fireRate = 0.18;
 
   double screenWidth = 400;
   double screenHeight = 800;
@@ -121,60 +134,39 @@ class GameProvider extends ChangeNotifier {
   double get animTick => _animTick;
 
   SectorPalette get palette => sectorPalette(state.sector);
+  SectorConfig get sectorConfig => resolveSectorConfig(state.sector);
 
-  // ── SECTOR-SPECIFIC OBSTACLE INTERVALS ────────────────────────────────────
-  // Faster spawning as sectors increase, but also based on pattern type
+  // ── SECTOR-DRIVEN OBSTACLE INTERVALS ───────────────────────────────────────
   double get _obstacleInterval {
-    // Base interval shrinks per sector
-    double base;
-    switch (state.lastPattern) {
-      case PatternType.sweepBeam:
-        base = 2.0;
-        break;
-      case PatternType.pulseGate:
-        base = 1.8;
-        break;
-      case PatternType.minefield:
-        base = 1.5;
-        break;
-      default:
-        base = 1.0;
-    }
-    // Each sector reduces interval by 0.08 (more walls)
-    base -= (state.sector - 1) * 0.08;
-    return base.clamp(0.80, 2.2);
+    final cfg = sectorConfig;
+    // Per-pattern base from config (default 1.0)
+    final base = cfg.patternIntervals[state.lastPattern] ?? 1.0;
+    // Sector reduces interval
+    final scaled = base - (state.sector - 1) * cfg.intervalPerSector;
+    return scaled.clamp(cfg.minInterval, cfg.maxInterval);
   }
 
-  // ── SLOW MODE AWARENESS ───────────────────────────────────────────────────
-  // During slow time, keep spawning obstacles so the game stays active
-  double get _effectiveSpeedMult => state.isSlowActive ? 0.4 : 1.0;
+  double get _effectiveSpeedMult => 1.0;
 
   PatternType _pickPattern() {
+    final cfg = sectorConfig;
     final d = state.difficulty;
-    final s = state.sector;
-    final available = <PatternType>[];
+    // Build weighted pool from config, filtering by minDifficulty
+    final entries = cfg.patterns.where((e) => d >= e.minDifficulty).toList();
+    if (entries.isEmpty) return PatternType.gapWall;
 
-    // More variety per sector
-    available.add(PatternType.gapWall);
-    available.add(PatternType.gapWall);
-    if (d > 0.2 || s >= 2) available.add(PatternType.zigzag);
-    if (d > 0.5 || s >= 2) available.add(PatternType.minefield);
-    if (d > 1.0 || s >= 3) available.add(PatternType.sweepBeam);
-    if (d > 1.5 || s >= 4) available.add(PatternType.pulseGate);
-    // Higher sectors get more wall variety
-    if (s >= 3) available.add(PatternType.zigzag);
-    if (s >= 4) {
-      available.add(PatternType.minefield);
-      available.add(PatternType.sweepBeam);
-    }
-    if (s >= 5) {
-      available.add(PatternType.pulseGate);
-      available.add(PatternType.gapWall); // double walls
-    }
+    // Remove last pattern to avoid repeats
+    final filtered = entries.where((e) => e.type != state.lastPattern).toList();
+    final pool = filtered.isEmpty ? entries : filtered;
 
-    final filtered = available.where((p) => p != state.lastPattern).toList();
-    final pool = filtered.isEmpty ? available : filtered;
-    return pool[_rng.nextInt(pool.length)];
+    // Weighted random pick
+    final totalW = pool.fold<double>(0, (s, e) => s + e.weight);
+    var roll = _rng.nextDouble() * totalW;
+    for (final e in pool) {
+      roll -= e.weight;
+      if (roll <= 0) return e.type;
+    }
+    return pool.last.type;
   }
 
   void _initStars() {
@@ -227,15 +219,10 @@ class GameProvider extends ChangeNotifier {
     _bombKillCursor = 0;
     boss = null;
     bossMissiles = [];
-    bossDefeated = false;
-    bossSpawned = false;
-    bossKillCount = 0;
-    _timeSinceLastBoss = 0;
     rampage = RampageState();
-    gauntletActive = false;
-    gauntletTimer = 0;
-    escaped = false;
-    escapeFlashTimer = 0;
+    // Reset all scenarios
+    _scenarios.clear();
+    _scenarios.addAll([GauntletScenario(), BossEncounterScenario()]);
     shakeIntensity = 0;
     tensionLevel = 0;
     breathTimer = 0;
@@ -331,26 +318,24 @@ class GameProvider extends ChangeNotifier {
         Color(0xFFFF6B2B),
         Color(0xFFFFD60A),
       ];
-      particles.add({
-        'x': player.x,
-        'y': player.y,
-        'vx': cos(angle) * speed,
-        'vy': sin(angle) * speed,
-        'life': 1.0,
-        'color': cols[_rng.nextInt(cols.length)],
-        'size': 7.0 + _rng.nextDouble() * 14,
-        'decay': 0.014,
-        'shape': 'ember',
-        'angle': angle,
-        'spin': 0.0,
-      });
+      particles.add(Particle(
+        x: player.x,
+        y: player.y,
+        vx: cos(angle) * speed,
+        vy: sin(angle) * speed,
+        life: 1.0,
+        color: cols[_rng.nextInt(cols.length)],
+        size: 7.0 + _rng.nextDouble() * 14,
+        decay: 0.014,
+        shape: ParticleShape.ember,
+        angle: angle,
+      ));
     }
 
     // Queue kills — ticker drains 4/frame after freeze ends
     _bombKillQueue = obstacles.where((o) {
       if (o.isDying || o.isFullyDead) return false;
-      if (o.type == ObstacleType.sweepBeam || o.type == ObstacleType.pulseGate)
-        return false;
+      if (o is SweepBeamEntity || o is PulseGateEntity) return false;
       return true;
     }).toList();
     _bombKillCursor = 0;
@@ -391,10 +376,7 @@ class GameProvider extends ChangeNotifier {
     if (nearDeathSlowTimer > 0) nearDeathSlowTimer -= _tickRate;
     final nearDeathMult = nearDeathSlowTimer > 0 ? 0.35 : 1.0;
 
-    // Slow power-up
-    final slowedSpeed = state.isSlowActive
-        ? (state.speed * 0.45).clamp(0.45, state.speed)
-        : state.speed * nearDeathMult;
+    final slowedSpeed = state.speed * nearDeathMult;
 
     state.score = (_gameTime * 14).floor();
 
@@ -426,190 +408,14 @@ class GameProvider extends ChangeNotifier {
       }
     }
 
-    // ── BOSS SPAWN & RESPAWN SYSTEM ─────────────────────────────
-    // Boss first appears at sector 3, then respawns every 45s after kill,
-    // each wave with +20 HP and faster fire rate.
-    _timeSinceLastBoss += _tickRate;
-    final bossFullyGone = boss == null || boss!.isFullyDead;
-    final firstSpawnReady =
-        state.sector >= 2 && !bossSpawned && _gameTime > 40.0;
-    final respawnReady = bossFullyGone &&
-        bossKillCount > 0 &&
-        state.sector >= 2 &&
-        _timeSinceLastBoss > _bossRespawnInterval;
-
-    if (firstSpawnReady || respawnReady) {
-      _timeSinceLastBoss = 0;
-      bossSpawned = true;
-      final wave = bossKillCount + 1;
-      final hpScale = 60.0 + state.sector * 15 + bossKillCount * 20.0;
-      final rateScale =
-          max(1.2, 3.5 - state.sector * 0.3 - bossKillCount * 0.2);
-      boss = BossShip(
-        hp: hpScale,
-        maxHp: hpScale,
-        fireRate: bossKillCount >= 1 ? max(0.9, rateScale - 0.3) : rateScale,
-        fireTimer: 4.0,
-      );
-      final msg = bossKillCount == 0
-          ? '⚠  IMPERIAL HUNTER DETECTED'
-          : '⚠  HUNTER ${_romanNumeral(wave)} — UPGRADED';
-      onRewardCollected?.call(msg);
-      shakeIntensity = 9.0;
+    // ── SCENARIO DELEGATION ─────────────────────────────────────────────────
+    // Activate pending scenarios, then tick all active ones.
+    for (final s in _scenarios) {
+      if (!s.isActive && !s.isComplete && s.canActivate(this)) {
+        s.onActivate(this);
+      }
+      if (s.isActive) s.update(this, _tickRate);
     }
-
-    // ── BOSS TICK ──────────────────────────────────────────────────────────
-    if (boss != null && !boss!.isFullyDead) {
-      boss!.pulsePhase += _tickRate * 2.5;
-      if (!boss!.isDead) {
-        if (boss!.y < 0.12)
-          boss!.y += boss!.enterSpeed * (1.0 + state.sector * 0.3);
-        boss!.x += (player.x - boss!.x) * 0.008;
-        boss!.fireTimer -= _tickRate;
-        if (boss!.fireTimer < 0.8)
-          boss!.warningFlash =
-              (boss!.warningFlash + _tickRate * 3).clamp(0.0, 1.0);
-        if (boss!.fireTimer <= 0) {
-          boss!.warningFlash = 0;
-          bossFire();
-          boss!.fireTimer = boss!.fireRate;
-        }
-        if (rampage.isActive) boss!.hp -= _tickRate * 8;
-        if (boss!.hp <= 0) {
-          boss!.isDead = true;
-          bossDefeated = true;
-          bossKillCount++; // track kill count for respawn scaling
-          _timeSinceLastBoss = 0; // reset respawn timer
-          shakeIntensity = 12.0;
-          rampage.chargeLevel = 1.0;
-          // Reduced to 8 particles — enough visual impact, no lag spike
-          for (int i = 0; i < 8; i++) {
-            final a = _rng.nextDouble() * 2 * pi;
-            final spd = 0.008 + _rng.nextDouble() * 0.022;
-            const cols = [
-              Colors.white,
-              Color(0xFFFF2D55),
-              Color(0xFFFF6B00),
-              Color(0xFFFFD60A),
-            ];
-            particles.add({
-              'x': boss!.x,
-              'y': boss!.y,
-              'vx': cos(a) * spd,
-              'vy': sin(a) * spd,
-              'life': 1.0,
-              'color': cols[_rng.nextInt(cols.length)],
-              'size': 8.0 + _rng.nextDouble() * 16,
-              'decay': 0.014,
-              'shape': 'ember',
-              'angle': a,
-              'spin': 0.0,
-            });
-          }
-          // 2 shockwaves only — 5 was overkill
-          shockwaves.add(Shockwave(
-              x: boss!.x,
-              y: boss!.y,
-              radius: 0.01,
-              life: 1.0,
-              color: Colors.white));
-          shockwaves.add(Shockwave(
-              x: boss!.x,
-              y: boss!.y,
-              radius: 0.02,
-              life: 1.0,
-              color: const Color(0xFFFF2D55)));
-          state.score += 5000;
-          final reward = bossKillCount == 1
-              ? '★  HUNTER DESTROYED  +5000'
-              : '★  HUNTER ${_romanNumeral(bossKillCount)} DESTROYED  +5000';
-          onRewardCollected?.call(reward);
-        }
-      } else {
-        boss!.deathTimer += _tickRate * 1.8; // dies faster = less lag frames
-      }
-
-      // Move missiles
-      for (final m in bossMissiles) {
-        m.x += m.vx;
-        m.y += m.vy;
-        m.life -= _tickRate * 0.35;
-        if (m.y > 1.1 || m.x < -0.05 || m.x > 1.05 || m.life <= 0)
-          m.active = false;
-      }
-      bossMissiles.removeWhere((m) => !m.active);
-
-      // Missile vs player
-      if (!state.isShieldActive) {
-        for (final m in bossMissiles) {
-          if (!m.active) continue;
-          if (sqrt(pow(m.x - player.x, 2) + pow(m.y - player.y, 2)) < 0.055) {
-            m.active = false;
-            spawnExplosionParticles(m.x, m.y);
-            handleHit();
-            break;
-          }
-        }
-      }
-
-      // Bullets vs boss
-      if (!boss!.isDead && boss!.y > -0.05) {
-        const bossW = 0.22;
-        const bossH = 0.14;
-        for (final b in bullets) {
-          if (!b.active) continue;
-          if (b.x > boss!.x - bossW / 2 &&
-              b.x < boss!.x + bossW / 2 &&
-              b.y > boss!.y - bossH / 2 &&
-              b.y < boss!.y + bossH / 2) {
-            b.active = false;
-            boss!.hp -= 1;
-            rampage.chargeLevel = (rampage.chargeLevel + 0.018).clamp(0, 1.0);
-            spawnHitSparks(boss!.x + (_rng.nextDouble() - 0.5) * 0.12, boss!.y,
-                const Color(0xFFFF2D55));
-            shakeIntensity = max(shakeIntensity, 3.0);
-          }
-        }
-      }
-    }
-
-    // ── GAUNTLET: activates at sector 5 ───────────────────────────────────
-    if (state.sector >= 5 && !gauntletActive && !escaped) {
-      gauntletActive = true;
-      gauntletTimer = 0;
-      onRewardCollected?.call('⚡  FINAL GAUNTLET — SURVIVE 30s');
-      shakeIntensity = 10.0;
-    }
-    if (gauntletActive && !escaped) {
-      gauntletTimer += _tickRate;
-      if (gauntletTimer >= _gauntletDuration) {
-        escaped = true;
-        escapeFlashTimer = 1.0;
-        state.score += 10000;
-        onRewardCollected?.call('★★★  ESCAPED  +10000  ★★★');
-        shakeIntensity = 12.0;
-        for (int i = 0; i < 18; i++) {
-          final a = _rng.nextDouble() * 2 * pi;
-          final spd = 0.01 + _rng.nextDouble() * 0.028;
-          const cols = [Colors.white, Color(0xFF00FFD1), Color(0xFFFFD60A)];
-          particles.add({
-            'x': player.x,
-            'y': player.y,
-            'vx': cos(a) * spd,
-            'vy': sin(a) * spd - 0.01,
-            'life': 1.0,
-            'color': cols[_rng.nextInt(cols.length)],
-            'size': 6.0 + _rng.nextDouble() * 12,
-            'decay': 0.012,
-            'shape': 'ember',
-            'angle': a,
-            'spin': 0.0,
-          });
-        }
-        Future.delayed(const Duration(milliseconds: 2800), () => stopGame());
-      }
-    }
-    if (escapeFlashTimer > 0) escapeFlashTimer -= _tickRate * 1.2;
 
     // ── DRAMA SYSTEM: tension builds, then breathes ───────────────────────
     // Tension rises as speed and sector increase; obstacles being close raises it faster
@@ -633,10 +439,9 @@ class GameProvider extends ChangeNotifier {
     if (nearMissCooldown <= 0) {
       for (final obs in obstacles) {
         if (obs.isFullyDead || obs.isDying) continue;
-        if (obs.type != ObstacleType.laserWall &&
-            obs.type != ObstacleType.sweepBeam) continue;
+        if (obs is! LaserWallEntity && obs is! SweepBeamEntity) continue;
         double dist = 999.0;
-        if (obs.type == ObstacleType.laserWall) {
+        if (obs is LaserWallEntity) {
           final obsBottom = obs.y + obs.height;
           final obsTop = obs.y;
           // Near miss = player passed through the y-band recently
@@ -719,15 +524,15 @@ class GameProvider extends ChangeNotifier {
       _ghostTimer += _tickRate;
       if (_ghostTimer > 0.08) {
         _ghostTimer = 0;
-        ghostImages.add({
-          'x': player.x,
-          'y': player.y,
-          'life': 1.0,
-          'size': player.size.toDouble()
-        });
+        ghostImages.add(GhostImage(
+          x: player.x,
+          y: player.y,
+          life: 1.0,
+          size: player.size.toDouble(),
+        ));
       }
-      for (final g in ghostImages) g['life'] = (g['life'] as double) - 0.07;
-      ghostImages.removeWhere((g) => (g['life'] as double) <= 0);
+      for (final g in ghostImages) g.life -= 0.07;
+      ghostImages.removeWhere((g) => g.life <= 0);
     } else {
       ghostImages.clear();
     }
@@ -763,11 +568,6 @@ class GameProvider extends ChangeNotifier {
       state.shieldTimer -= _tickRate;
       if (state.shieldTimer <= 0) state.isShieldActive = false;
     }
-    if (state.isSlowActive) {
-      state.slowTimer -= _tickRate;
-      if (state.slowTimer <= 0) state.isSlowActive = false;
-    }
-
     // Move bullets — full speed always
     for (final b in bullets) {
       b.y += b.vy;
@@ -777,47 +577,15 @@ class GameProvider extends ChangeNotifier {
     }
     bullets.removeWhere((b) => !b.active);
 
-    // Move & animate obstacles — use slowedSpeed
+    // Move & animate obstacles — each entity owns its own update logic
     for (final obs in obstacles) {
       if (!obs.isDying) {
-        obs.y += obs.speed * slowedSpeed;
-        obs.rotation += obs.rotationSpeed * _effectiveSpeedMult;
-        // Tracker mine homing
-        if (obs.type == ObstacleType.mine && obs.mineType == MineType.tracker) {
-          final dx = player.x - obs.x;
-          final dy = player.y - obs.y;
-          final dist = sqrt(dx * dx + dy * dy);
-          if (dist > 0.02) {
-            final trackSpeed = 0.0006 + state.difficulty * 0.0002;
-            obs.trackerVX += (dx / dist) * trackSpeed;
-            obs.trackerVY += (dy / dist) * trackSpeed;
-            final vmag = sqrt(
-                obs.trackerVX * obs.trackerVX + obs.trackerVY * obs.trackerVY);
-            const vmax = 0.004;
-            if (vmag > vmax) {
-              obs.trackerVX = obs.trackerVX / vmag * vmax;
-              obs.trackerVY = obs.trackerVY / vmag * vmax;
-            }
-          }
-          obs.x += obs.trackerVX * _effectiveSpeedMult;
-          obs.y += obs.trackerVY * _effectiveSpeedMult;
-        }
+        obs.update(_tickRate, slowedSpeed, _effectiveSpeedMult, player.x,
+            player.y, state.difficulty);
       }
       if (obs.isDying) obs.deathTimer += _tickRate * 2.5;
-      if (obs.type == ObstacleType.sweepBeam && !obs.sweepDone) {
-        // Sweep beam moves at real speed — it's a timed hazard
-        obs.sweepProgress += obs.sweepSpeed * _tickRate;
-        if (obs.sweepProgress >= 1.0) obs.sweepDone = true;
-      }
-      if (obs.type == ObstacleType.pulseGate) obs.pulsePhase += _tickRate * 2.8;
-      if (obs.type == ObstacleType.mine) obs.pulsePhase += _tickRate * 3;
     }
-    obstacles.removeWhere((o) =>
-        o.isFullyDead ||
-        o.y > 1.2 ||
-        o.x < -0.15 ||
-        o.x > 1.15 ||
-        (o.type == ObstacleType.sweepBeam && o.sweepDone && o.y > 0.2));
+    obstacles.removeWhere((o) => o.shouldRemove());
 
     // Move coins & pickups
     for (final coin in coins) {
@@ -840,16 +608,13 @@ class GameProvider extends ChangeNotifier {
 
     // Particles
     for (final p in particles) {
-      p['y'] = (p['y'] as double) + (p['vy'] as double);
-      p['x'] = (p['x'] as double) + (p['vx'] as double);
-      p['vy'] = (p['vy'] as double) + 0.0002;
-      p['life'] = (p['life'] as double) - (p['decay'] as double? ?? 0.035);
-      // Update spin angle
-      if (p.containsKey('spin') && p.containsKey('angle')) {
-        p['angle'] = (p['angle'] as double) + (p['spin'] as double);
-      }
+      p.y += p.vy;
+      p.x += p.vx;
+      p.vy += 0.0002;
+      p.life -= p.decay;
+      p.angle += p.spin;
     }
-    particles.removeWhere((p) => (p['life'] as double) <= 0);
+    particles.removeWhere((p) => p.life <= 0);
 
     // Shockwaves
     for (final sw in shockwaves) {
@@ -879,19 +644,18 @@ class GameProvider extends ChangeNotifier {
         final cy = obs.y + obs.height / 2;
         for (int j = 0; j < 4; j++) {
           final a = _rng.nextDouble() * 2 * pi;
-          particles.add({
-            'x': cx,
-            'y': cy,
-            'vx': cos(a) * 0.010,
-            'vy': sin(a) * 0.010 - 0.003,
-            'life': 0.75,
-            'color': obs.color,
-            'size': 3.5 + _rng.nextDouble() * 5,
-            'decay': 0.05,
-            'shape': 'ember',
-            'angle': a,
-            'spin': 0.0,
-          });
+          particles.add(Particle(
+            x: cx,
+            y: cy,
+            vx: cos(a) * 0.010,
+            vy: sin(a) * 0.010 - 0.003,
+            life: 0.75,
+            color: obs.color,
+            size: 3.5 + _rng.nextDouble() * 5,
+            decay: 0.05,
+            shape: ParticleShape.ember,
+            angle: a,
+          ));
         }
         if (i % 2 == 0)
           shockwaves.add(Shockwave(
@@ -903,7 +667,7 @@ class GameProvider extends ChangeNotifier {
     // Sweep beam warning: flash 0.5s before beam arrives in player zone
     sweepWarningActive = false;
     for (final obs in obstacles) {
-      if (obs.type != ObstacleType.sweepBeam || obs.sweepDone) continue;
+      if (obs is! SweepBeamEntity || obs.sweepDone) continue;
       final beamY = obs.y;
       if ((beamY - player.y).abs() < 0.18 && beamY < player.y) {
         sweepWarningActive = true;
@@ -948,22 +712,6 @@ class GameProvider extends ChangeNotifier {
 
   void activateRampage() {
     rampageActivate();
-  }
-
-  String _romanNumeral(int n) {
-    const numerals = [
-      'I',
-      'II',
-      'III',
-      'IV',
-      'V',
-      'VI',
-      'VII',
-      'VIII',
-      'IX',
-      'X'
-    ];
-    return n >= 1 && n <= numerals.length ? numerals[n - 1] : '$n';
   }
 
   @override

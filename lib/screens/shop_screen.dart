@@ -7,13 +7,21 @@ import '../utils/safe_color.dart';
 import '../models/game_models.dart';
 import '../game/ships/ships.dart';
 
-const _skinNames = ['PHANTOM', 'NOVA', 'INFERNO', 'SPECTER', 'TITAN'];
+const _skinNames = [
+  'PHANTOM',
+  'NOVA',
+  'INFERNO',
+  'SPECTER',
+  'TITAN',
+  'SOVEREIGN'
+];
 const _skinSubs = [
   'Stealth Interceptor',
   'Advanced Delta Fighter',
   'Heavy Muscle Bomber',
   'Bio-mechanical Ghost',
-  'Massive Dreadnought'
+  'Massive Dreadnought',
+  'Imperial Strike Cruiser'
 ];
 const _skinLore = [
   'Hyper-sleek needle. Multi-layered armor with cockpit glass glare.',
@@ -21,8 +29,9 @@ const _skinLore = [
   'Flat-nosed bruiser. Dark armor plating and forward-swept canards.',
   'Organic alien curves. Energy veins pulse beneath the hull.',
   'Blocky carrier. Structural ribs, tiny windows, four-engine wall.',
+  'Ivory-white hull with gold spine. Massive swept wings and twin nacelles.',
 ];
-const _skinPrices = [0, 100, 200, 350, 600];
+const _skinPrices = [0, 100, 200, 350, 600, 900];
 
 class ShopScreen extends StatefulWidget {
   const ShopScreen({super.key});
@@ -144,10 +153,7 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
                         color: selected ? color : AppTheme.cardBorder,
                         width: selected ? 1.5 : 1),
                     boxShadow: selected
-                        ? [
-                            BoxShadow(
-                                color: color.o(0.18), blurRadius: 16)
-                          ]
+                        ? [BoxShadow(color: color.o(0.18), blurRadius: 16)]
                         : null,
                   ),
                   child: Row(children: [
@@ -187,8 +193,7 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
                                   decoration: BoxDecoration(
                                       color: color.o(0.15),
                                       borderRadius: BorderRadius.circular(4),
-                                      border: Border.all(
-                                          color: color.o(0.5))),
+                                      border: Border.all(color: color.o(0.5))),
                                   child: Text('ACTIVE',
                                       style: TextStyle(
                                           color: color,
@@ -384,6 +389,9 @@ class _ShipRowPainter extends CustomPainter {
         break;
       case SkinType.titan:
         drawTitanShip(canvas, r, color, t);
+        break;
+      case SkinType.sovereign:
+        drawSovereignShip(canvas, r, color, t);
         break;
     }
 

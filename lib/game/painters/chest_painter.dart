@@ -29,10 +29,6 @@ void drawChests(Canvas canvas, Size size, List<TreasureChest> chests) {
     Color gemColor;
     String rewardLabel;
     switch (chest.reward) {
-      case TreasureReward.slowTime:
-        gemColor = AppTheme.slowColor;
-        rewardLabel = '⏱';
-        break;
       case TreasureReward.extraLife:
         gemColor = AppTheme.danger;
         rewardLabel = '♥';
@@ -90,7 +86,8 @@ void drawChests(Canvas canvas, Size size, List<TreasureChest> chests) {
     // Bottom box
     paint.shader = LinearGradient(
       colors: [
-        Color.lerp(bodyBase, Colors.white, 0.08)!, // top edge of box (slightly lit)
+        Color.lerp(
+            bodyBase, Colors.white, 0.08)!, // top edge of box (slightly lit)
         bodyBase,
         Color.lerp(bodyBase, Colors.black, 0.40)!, // bottom in shadow
       ],
