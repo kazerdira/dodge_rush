@@ -27,6 +27,7 @@ const Color _hullLight = Color(0xFF3E4A58);
 const Color _hullHighest = Color(0xFF5E6E82);
 const Color _seamDark = Color(0xFF0C0E11);
 const Color _roomFloor = Color(0xFF1C2230);
+const Color _roomCeiling = Color(0xFF18202C);
 const Color _pipeClean = Color(0xFF2A6090);
 const Color _pipeRed = Color(0xFF8B1A1A);
 const Color _pipeCopper = Color(0xFF7A4A20);

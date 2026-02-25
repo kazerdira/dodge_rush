@@ -364,7 +364,7 @@ class _ShipRowPainter extends CustomPainter {
     // Glow behind selected ship
     if (selected) {
       final paint = Paint()
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 14)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8)
         ..color = color.o(0.35);
       canvas.drawCircle(Offset(cx, cy), r + 8, paint);
     }

@@ -82,6 +82,9 @@ class GauntletScenario extends GameScenario {
 
   @override
   void update(GameProvider gp, double dt) {
+    // Fade escape flash even after escape — must run before early-return
+    if (escapeFlashTimer > 0) escapeFlashTimer -= dt * 1.2;
+
     if (!_active || escaped) return;
 
     timer += dt;
@@ -110,15 +113,14 @@ class GauntletScenario extends GameScenario {
           angle: a,
         ));
       }
-      onComplete(gp);
+      // Gauntlet survived — game continues at max difficulty.
+      // Player plays until lives run out (no forced game-over).
     }
-
-    if (escapeFlashTimer > 0) escapeFlashTimer -= dt * 1.2;
   }
 
   @override
   void onComplete(GameProvider gp) {
-    Future.delayed(const Duration(milliseconds: 2800), () => gp.stopGame());
+    // No-op: gauntlet escape is a reward, not a game-ending event.
   }
 
   @override
@@ -199,9 +201,11 @@ class BossEncounterScenario extends GameScenario {
     boss.pulsePhase += dt * 2.5;
 
     if (!boss.isDead) {
-      // Entrance glide
+      // Entrance glide — cap sector contribution so high sectors don't
+      // make the boss slam in instantly.
+      final sectorMult = 1.0 + gp.state.sector.clamp(1, 6) * 0.3;
       if (boss.y < 0.12) {
-        boss.y += boss.enterSpeed * (1.0 + gp.state.sector * 0.3);
+        boss.y += boss.enterSpeed * sectorMult;
       }
       // Track player
       boss.x += (gp.player.x - boss.x) * boss.trackingSpeed;

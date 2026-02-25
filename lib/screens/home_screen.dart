@@ -186,8 +186,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                   borderRadius: BorderRadius.circular(6),
                   boxShadow: [
                     BoxShadow(
-                      color: AppTheme.accent
-                          .o(0.3 + _pulseCtrl.value * 0.2),
+                      color: AppTheme.accent.o(0.3 + _pulseCtrl.value * 0.2),
                       blurRadius: 24 + _pulseCtrl.value * 16,
                       spreadRadius: 0,
                     ),
@@ -409,18 +408,27 @@ class _SpaceBgPainter extends CustomPainter {
     canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height),
         Paint()..color = AppTheme.bg);
 
-    // Nebula glow
-    final p = Paint()
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 100)
-      ..style = PaintingStyle.fill;
-    p.color = AppTheme.purple.o(0.06 + sin(t * 2 * pi) * 0.02);
+    // Nebula glow — NO blur, layered circles at decreasing opacity
+    final p = Paint()..style = PaintingStyle.fill;
+    // Purple nebula
+    p.color = AppTheme.purple.o(0.02 + sin(t * 2 * pi) * 0.008);
+    canvas.drawCircle(Offset(size.width * 0.15, size.height * 0.4), 280, p);
+    p.color = AppTheme.purple.o(0.04 + sin(t * 2 * pi) * 0.012);
     canvas.drawCircle(Offset(size.width * 0.15, size.height * 0.4), 200, p);
-    p.color =
-        AppTheme.accentAlt.o(0.05 + cos(t * 2 * pi * 0.7) * 0.015);
+    p.color = AppTheme.purple.o(0.06 + sin(t * 2 * pi) * 0.02);
+    canvas.drawCircle(Offset(size.width * 0.15, size.height * 0.4), 120, p);
+    // Blue-alt nebula
+    p.color = AppTheme.accentAlt.o(0.02 + cos(t * 2 * pi * 0.7) * 0.006);
+    canvas.drawCircle(Offset(size.width * 0.85, size.height * 0.55), 250, p);
+    p.color = AppTheme.accentAlt.o(0.04 + cos(t * 2 * pi * 0.7) * 0.012);
     canvas.drawCircle(Offset(size.width * 0.85, size.height * 0.55), 180, p);
+    p.color = AppTheme.accentAlt.o(0.05 + cos(t * 2 * pi * 0.7) * 0.015);
+    canvas.drawCircle(Offset(size.width * 0.85, size.height * 0.55), 110, p);
+    // Accent top
+    p.color = AppTheme.accent.o(0.015);
+    canvas.drawCircle(Offset(size.width * 0.5, size.height * 0.1), 220, p);
     p.color = AppTheme.accent.o(0.04);
     canvas.drawCircle(Offset(size.width * 0.5, size.height * 0.1), 150, p);
-    p.maskFilter = null;
 
     // Stars
     final sp = Paint()..style = PaintingStyle.fill;
@@ -461,7 +469,7 @@ class _ShipPreviewPainter extends CustomPainter {
     final paint = Paint()..style = PaintingStyle.fill;
 
     // Engine glow
-    paint.maskFilter = const MaskFilter.blur(BlurStyle.normal, 20);
+    paint.maskFilter = const MaskFilter.blur(BlurStyle.normal, 8);
     paint.color = color.o(0.4);
     canvas.drawCircle(Offset(cx, cy + r * 0.4), r * 0.7, paint);
     paint.maskFilter = null;

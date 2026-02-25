@@ -22,6 +22,20 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   late GameProvider _game;
   bool _initialized = false;
   bool _showHitFlash = false;
+  DateTime _lastHaptic =
+      DateTime(2000); // throttle haptics to prevent surface churn
+
+  /// Fire haptic only if enough time has passed since the last one.
+  /// Rapid HapticFeedback calls cause handleWindowFocusChanged spam on
+  /// some Android devices, which triggers surface recreation and GPU
+  /// buffer probe failures on Adreno GPUs.
+  void _safeHaptic(void Function() haptic, {int cooldownMs = 200}) {
+    final now = DateTime.now();
+    if (now.difference(_lastHaptic).inMilliseconds >= cooldownMs) {
+      _lastHaptic = now;
+      haptic();
+    }
+  }
 
   String? _rewardText;
   late AnimationController _toastCtrl;
@@ -74,14 +88,14 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
 
       _game.onHit = () {
         if (!mounted) return;
-        HapticFeedback.heavyImpact();
+        _safeHaptic(HapticFeedback.heavyImpact, cooldownMs: 300);
         setState(() => _showHitFlash = true);
         Future.delayed(const Duration(milliseconds: 180), () {
           if (mounted) setState(() => _showHitFlash = false);
         });
       };
 
-      _game.onCoinCollected = () => HapticFeedback.lightImpact();
+      _game.onCoinCollected = () => _safeHaptic(HapticFeedback.lightImpact);
 
       _game.onRewardCollected = (String text) {
         if (!mounted) return;
@@ -89,7 +103,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
         _toastCtrl.forward(from: 0).then((_) {
           if (mounted) setState(() => _rewardText = null);
         });
-        HapticFeedback.mediumImpact();
+        _safeHaptic(HapticFeedback.mediumImpact);
       };
 
       _game.startGame(skin: settings.selectedSkin);
@@ -107,7 +121,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
 
   void _triggerBomb() {
     if (_game.state.bombs <= 0) return;
-    HapticFeedback.heavyImpact();
+    _safeHaptic(HapticFeedback.heavyImpact, cooldownMs: 500);
     _game
         .detonateBomb(); // notifyListeners() already triggers rebuild — no setState needed here
   }

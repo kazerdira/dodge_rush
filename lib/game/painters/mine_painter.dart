@@ -400,7 +400,7 @@ void _drawMineExplosion(
   final paint = Paint()..style = PaintingStyle.fill;
   // One radial burst — tight blur on the expanding ring
   paint.maskFilter =
-      MaskFilter.blur(BlurStyle.normal, (18 * (1 - t)).clamp(0.1, 18.0));
+      MaskFilter.blur(BlurStyle.normal, (10 * (1 - t)).clamp(0.1, 10.0));
   paint.color = color.o(((1.0 - t) * 0.85).clamp(0.0, 0.9999));
   canvas.drawCircle(Offset(cx, cy), r * (1 + t * 2.8), paint);
   paint.maskFilter = null;

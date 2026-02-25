@@ -263,6 +263,7 @@ class GameProvider extends ChangeNotifier {
   }
 
   void stopGame() {
+    if (state.isGameOver) return; // guard against double-call
     _gameLoop?.cancel();
     _gameLoop = null;
     state.isPlaying = false;
@@ -366,11 +367,13 @@ class GameProvider extends ChangeNotifier {
     state.difficulty = min(_gameTime / 70.0, 5.0);
 
     // ── REBALANCED SPEED ────────────────────────────────────────
-    // Gentler per-sector jump (0.15 instead of 0.25), lower max (2.5 vs 2.8)
-    // This keeps the game playable through sector 3-4 for new players.
-    final sectorSpeedBase = 1.0 + (state.sector - 1) * 0.15;
-    final diffSpeed = state.difficulty * 0.18;
-    state.speed = (sectorSpeedBase + diffSpeed).clamp(1.0, 1.9);
+    // Gentle per-sector ramp with a hard ceiling so the game stays
+    // playable even at sector 8+.  Difficulty adds a small bonus that
+    // also plateaus, keeping late-game challenge in pattern complexity
+    // rather than raw scroll velocity.
+    final sectorSpeedBase = 1.0 + (state.sector - 1) * 0.08;
+    final diffSpeed = state.difficulty * 0.14;
+    state.speed = (sectorSpeedBase + diffSpeed).clamp(1.0, 1.65);
 
     // Near-death slow: if 1 life left, brief bullet-time on close calls
     if (nearDeathSlowTimer > 0) nearDeathSlowTimer -= _tickRate;
@@ -380,9 +383,10 @@ class GameProvider extends ChangeNotifier {
 
     state.score = (_gameTime * 14).floor();
 
-    // ── REBALANCED SECTOR TIMING ──────────────────────────────────
-    // 35 seconds per sector instead of 28 — more time to adapt
-    state.sector = min((_gameTime / 35.0).floor() + 1, 5);
+    // ── SECTOR TIMING ────────────────────────────────────────────
+    // 35 seconds per sector.  No cap — sector grows as long as you
+    // survive.  Config/palette default to sector-5 values for 6+.
+    state.sector = (_gameTime / 35.0).floor() + 1;
 
     // Weapon timer
     if (state.weaponTimer > 0) {
@@ -543,7 +547,11 @@ class GameProvider extends ChangeNotifier {
     _timeSinceLastPowerUp += _tickRate;
     _timeSinceLastAsteroid += _tickRate;
 
-    if (_timeSinceLastObstacle >= _obstacleInterval) {
+    // Reduce spawn pressure during active boss fight — double interval
+    final bossAlive = boss != null && !boss!.isDead;
+    final effectiveInterval =
+        bossAlive ? _obstacleInterval * 2.0 : _obstacleInterval;
+    if (_timeSinceLastObstacle >= effectiveInterval) {
       spawnPattern();
       _timeSinceLastObstacle = 0;
     }
@@ -576,6 +584,10 @@ class GameProvider extends ChangeNotifier {
         b.active = false;
     }
     bullets.removeWhere((b) => !b.active);
+    // Hard cap — Specter laser can produce 66+ bullets; trim oldest
+    if (bullets.length > 80) {
+      bullets.removeRange(0, bullets.length - 80);
+    }
 
     // Move & animate obstacles — each entity owns its own update logic
     for (final obs in obstacles) {
@@ -615,6 +627,10 @@ class GameProvider extends ChangeNotifier {
       p.angle += p.spin;
     }
     particles.removeWhere((p) => p.life <= 0);
+    // Hard cap — prevent GPU overload during intense boss fights
+    if (particles.length > 150) {
+      particles.removeRange(0, particles.length - 150);
+    }
 
     // Shockwaves
     for (final sw in shockwaves) {
@@ -622,6 +638,10 @@ class GameProvider extends ChangeNotifier {
       sw.life -= 0.04;
     }
     shockwaves.removeWhere((sw) => sw.life <= 0);
+    // Hard cap
+    if (shockwaves.length > 20) {
+      shockwaves.removeRange(0, shockwaves.length - 20);
+    }
 
     // Bomb animation
     if (activeBomb != null) {

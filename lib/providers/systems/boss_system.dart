@@ -18,15 +18,17 @@ extension BossSystem on GameProvider {
     final aimX = (dx / dist) * pattern.aimSpeed;
     final aimY = (dy / dist) * pattern.aimSpeed;
 
-    // Spawn one missile per port
-    for (final port in pattern.ports) {
-      bossMissiles.add(BossMissile(
-        x: bx + port.dx,
-        y: boss!.y + port.dy,
-        vx: aimX + port.dvx,
-        vy: aimY + port.dvy,
-        color: port.color,
-      ));
+    // Spawn one missile per port (cap at 20 to prevent GPU overload)
+    if (bossMissiles.length < 20) {
+      for (final port in pattern.ports) {
+        bossMissiles.add(BossMissile(
+          x: bx + port.dx,
+          y: boss!.y + port.dy,
+          vx: aimX + port.dvx,
+          vy: aimY + port.dvy,
+          color: port.color,
+        ));
+      }
     }
     shakeIntensity = max(shakeIntensity, 5.0);
 

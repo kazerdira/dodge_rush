@@ -42,12 +42,23 @@ void drawBossShip(
   final aura =
       ((1.0 - hpRatio) * 0.35 + boss.warningFlash * 0.5).clamp(0.0, 1.0);
   if (aura > 0.05) {
-    paint.maskFilter = MaskFilter.blur(BlurStyle.normal, 70);
-    paint.color = const Color(0xFFCC1100).o(aura * 0.35 * opacity);
+    // NO blur — layered ovals replace sigma-70 offscreen buffer
+    paint.color = const Color(0xFFCC1100).o(aura * 0.06 * opacity);
     canvas.drawOval(
-        Rect.fromCenter(center: Offset.zero, width: w * 4.0, height: h * 4.0),
+        Rect.fromCenter(center: Offset.zero, width: w * 6.0, height: h * 6.0),
         paint);
-    paint.maskFilter = null;
+    paint.color = const Color(0xFFCC1100).o(aura * 0.12 * opacity);
+    canvas.drawOval(
+        Rect.fromCenter(center: Offset.zero, width: w * 4.5, height: h * 4.5),
+        paint);
+    paint.color = const Color(0xFFCC1100).o(aura * 0.22 * opacity);
+    canvas.drawOval(
+        Rect.fromCenter(center: Offset.zero, width: w * 3.0, height: h * 3.0),
+        paint);
+    paint.color = const Color(0xFFCC1100).o(aura * 0.30 * opacity);
+    canvas.drawOval(
+        Rect.fromCenter(center: Offset.zero, width: w * 2.0, height: h * 2.0),
+        paint);
   }
 
   // ── 2. WIDE DELTA WINGS ───────────────────────────────────────────────────
@@ -183,17 +194,18 @@ void drawBossShip(
       paint.style = PaintingStyle.fill;
     }
 
-    // ── RED VENT DOTS along leading edge
+    // ── RED VENT DOTS along leading edge (layered circles, no blur)
     for (int d = 0; d < 6; d++) {
       final t = (d + 1) / 7.0;
       final vx = s * (w * 0.15 + t * w * 0.92);
       final vy = -h * 0.30 + t * (-h * 0.34);
       paint.color = const Color(0xFF08000A).o(opacity);
       canvas.drawCircle(Offset(vx, vy), 3.8, paint);
-      paint.maskFilter = MaskFilter.blur(BlurStyle.normal, 6);
-      paint.color = const Color(0xFFFF2200).o((0.55 + pulse * 0.45) * opacity);
+      // Soft halo replaces blur(6) — no offscreen buffer
+      paint.color = const Color(0xFFFF2200).o((0.18 + pulse * 0.12) * opacity);
+      canvas.drawCircle(Offset(vx, vy), 5.5, paint);
+      paint.color = const Color(0xFFFF2200).o((0.45 + pulse * 0.35) * opacity);
       canvas.drawCircle(Offset(vx, vy), 3.2, paint);
-      paint.maskFilter = null;
       paint.color = Colors.white.o(0.90 * opacity);
       canvas.drawCircle(Offset(vx, vy), 1.3, paint);
     }
@@ -252,17 +264,18 @@ void drawBossShip(
         Offset(s * w * 0.80, h * 1.08 + mSwing), paint);
     paint.style = PaintingStyle.fill;
 
-    // Mandible glowing vent dots
+    // Mandible glowing vent dots (layered circles, no blur)
     for (int v = 0; v < 3; v++) {
       final t = v / 2.0;
       final vx = s * w * (0.74 - t * 0.06);
       final vy = h * (0.64 + t * 0.18) + mSwing * t;
       paint.color = const Color(0xFF08000A).o(opacity);
       canvas.drawCircle(Offset(vx, vy), 4.0, paint);
-      paint.maskFilter = MaskFilter.blur(BlurStyle.normal, 5);
-      paint.color = const Color(0xFFFF2200).o((0.65 + pulse * 0.35) * opacity);
+      // Soft halo replaces blur(5)
+      paint.color = const Color(0xFFFF2200).o((0.20 + pulse * 0.12) * opacity);
+      canvas.drawCircle(Offset(vx, vy), 5.5, paint);
+      paint.color = const Color(0xFFFF2200).o((0.55 + pulse * 0.25) * opacity);
       canvas.drawCircle(Offset(vx, vy), 3.0, paint);
-      paint.maskFilter = null;
       paint.color = Colors.white.o(0.85 * opacity);
       canvas.drawCircle(Offset(vx, vy), 1.2, paint);
     }
@@ -428,7 +441,7 @@ void drawBossShip(
   paint.style = PaintingStyle.fill;
 
   // Eye outer glow
-  paint.maskFilter = MaskFilter.blur(BlurStyle.normal, 22);
+  paint.maskFilter = const MaskFilter.blur(BlurStyle.normal, 10);
   paint.color = const Color(0xFFFF1A00).o((0.65 + pulse * 0.35) * opacity);
   canvas.drawCircle(Offset(0, -h * 0.08), w * 0.135, paint);
   paint.maskFilter = null;
@@ -453,7 +466,7 @@ void drawBossShip(
   canvas.drawCircle(Offset(-w * 0.028, -h * 0.118), w * 0.030, paint);
 
   if (boss.warningFlash > 0.05) {
-    paint.maskFilter = MaskFilter.blur(BlurStyle.normal, 28);
+    paint.maskFilter = const MaskFilter.blur(BlurStyle.normal, 10);
     paint.color =
         const Color(0xFFFF0000).o(boss.warningFlash.clamp(0.0, 1.0) * opacity);
     canvas.drawCircle(Offset(0, -h * 0.08), w * 0.28, paint);
@@ -563,7 +576,7 @@ void drawBossShip(
 
   // Cannon charge glow
   if (boss.warningFlash > 0.05) {
-    paint.maskFilter = MaskFilter.blur(BlurStyle.normal, 22);
+    paint.maskFilter = const MaskFilter.blur(BlurStyle.normal, 10);
     paint.color =
         const Color(0xFFFF0033).o(boss.warningFlash.clamp(0.0, 1.0) * opacity);
     canvas.drawCircle(Offset(0, h * 1.06), w * 0.12, paint);
@@ -720,13 +733,14 @@ void _drawClawArm(Canvas canvas, int side, double w, double h, double opacity,
   canvas.drawCircle(Offset(baseX, baseY + h * 0.37), w * 0.048, paint);
   paint.shader = null;
 
-  // Joint red ring glow
+  // Joint red ring glow (no blur — layered strokes)
   paint.style = PaintingStyle.stroke;
+  paint.strokeWidth = 3.5;
+  paint.color = const Color(0xFFFF2200).o((0.18 + pulse * 0.12) * opacity);
+  canvas.drawCircle(Offset(baseX, baseY + h * 0.37), w * 0.052, paint);
   paint.strokeWidth = 1.8;
-  paint.maskFilter = MaskFilter.blur(BlurStyle.normal, 4);
-  paint.color = const Color(0xFFFF2200).o((0.55 + pulse * 0.45) * opacity);
+  paint.color = const Color(0xFFFF2200).o((0.45 + pulse * 0.35) * opacity);
   canvas.drawCircle(Offset(baseX, baseY + h * 0.37), w * 0.048, paint);
-  paint.maskFilter = null;
   paint.style = PaintingStyle.fill;
 
   // Lower arm — angled outward with 3-D shading
@@ -781,11 +795,11 @@ void _drawClawArm(Canvas canvas, int side, double w, double h, double opacity,
     paint.color = const Color(0xFF08080F).o(opacity);
     canvas.drawPath(claw, paint);
     paint.style = PaintingStyle.fill;
-    // Red claw tip glow
-    paint.maskFilter = MaskFilter.blur(BlurStyle.normal, 5);
-    paint.color = const Color(0xFFFF2200).o((0.55 + pulse * 0.45) * opacity);
+    // Red claw tip glow (layered circles, no blur)
+    paint.color = const Color(0xFFFF2200).o((0.18 + pulse * 0.12) * opacity);
+    canvas.drawCircle(Offset(cx2, cy2base + h * 0.162), 4.5, paint);
+    paint.color = const Color(0xFFFF2200).o((0.45 + pulse * 0.35) * opacity);
     canvas.drawCircle(Offset(cx2, cy2base + h * 0.162), 2.5, paint);
-    paint.maskFilter = null;
     paint.color = Colors.white.o(0.85 * opacity);
     canvas.drawCircle(Offset(cx2, cy2base + h * 0.162), 1.0, paint);
   }
@@ -800,10 +814,11 @@ void drawBossMissiles(Canvas canvas, Size size, GameProvider game) {
     final mx = m.x * size.width;
     final my = m.y * size.height;
     final life = m.life.clamp(0.0, 1.0);
-    paint.maskFilter = const MaskFilter.blur(BlurStyle.normal, 9);
-    paint.color = m.color.o(life * 0.55);
+    // Soft halo replaces blur(9) — no offscreen buffer per missile
+    paint.color = m.color.o(life * 0.12);
+    canvas.drawCircle(Offset(mx, my), 16, paint);
+    paint.color = m.color.o(life * 0.25);
     canvas.drawCircle(Offset(mx, my), 11, paint);
-    paint.maskFilter = null;
     paint.color = m.color.o(life * 0.9);
     canvas.drawCircle(Offset(mx, my), 6, paint);
     paint.color = Colors.white.o(life * 0.9);
